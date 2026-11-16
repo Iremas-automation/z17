@@ -1,0 +1,7 @@
+# Duomenų failai NEKELIAMI į viešą repo
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.json
+.DS_Store
