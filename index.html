@@ -280,7 +280,9 @@ function makeSpStore(){
       try { const j = await res.json(); msg += ' – ' + ((j['odata.error'] && j['odata.error'].message.value) || (j.error && j.error.message) || ''); } catch (_) {}
       throw new Error(msg);
     }
-    return res.status === 204 ? null : res.json();
+    // SharePoint į DELETE / MERGE gali atsakyti 200 arba 204 su tuščiu turiniu
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   }
   function makeList(title, spec){
     const listUrl = SP_CONFIG.siteUrl.replace(/\/$/, '') + "/_api/web/lists/getbytitle('" + encodeURIComponent(title.replace(/'/g, "''")) + "')";
