@@ -33,11 +33,15 @@ Stulpelių pavadinimų nekeiskite – programa jų ieško pagal šiuos pavadinim
 
 ### 1b. Komentarai (neprivaloma)
 
-Į abu sąrašus pridėkite stulpelį **Komentarai** – *Kelios teksto eilutės* (paprastas tekstas):
-- `Z17_RMC_eilutes` → komentaras eilutei (eilutės kortelėje, rodomas po užsakymo turiniu)
-- `Z17_Uzsakymai` → komentaras visam užsakymui (užsakymo redagavimo lange, rodomas užsakymo antraštėje)
+Visi komentarai saugomi viename bendrame sąraše. Sukurkite tuščią sąrašą **`Z17_Komentarai`** su stulpeliais:
 
-Kol stulpelio nėra, komentarų laukas tiesiog nerodomas.
+| Stulpelis | Tipas | Paskirtis |
+|---|---|---|
+| `Title` (palikti) | – | Užs. Nr. |
+| **RMC Nr.** | Viena teksto eilutė | eilutės RMC Nr.; tuščias – komentaras visam užsakymui |
+| **Komentaras** | Kelios teksto eilutės (paprastas tekstas) | komentaro tekstas |
+
+Autorius ir laikas imami iš SharePoint (Sukūrė / Sukurta). Komentarai matomi: užsakyme (visi to užsakymo ir jo eilučių), eilutės kortelėje (tos eilutės) ir skirtuke **Komentarai** (visi, naujausi viršuje, su paieška). Ištrinti galima tik savo komentarą. Jei sąrašo nėra, komentarai išjungti, kita programa veikia.
 
 ### 1a. Užsakymų aplankų nuorodos (neprivaloma)
 

@@ -122,12 +122,32 @@ button.ghost{border-color:transparent;background:transparent;color:var(--muted)}
 .cbi.cur{font-weight:600}
 .cbe{padding:6px 10px;font-size:12px;color:var(--muted)}
 .fgrid .combo input{padding-right:24px}
-.ocmt{flex-basis:100%;border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
-.ocmt label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-family:var(--mono);margin-bottom:2px}
-.ocmt div{white-space:pre-wrap;font-size:13px}
-.lcmt{font-size:12px;color:var(--ink2);font-style:italic;margin-top:2px}
-.lcmt::before{content:"„"}
-.lcmt::after{content:"“"}
+/* komentarai */
+.vtabs{display:flex;gap:2px;background:var(--bg);padding:3px;border-radius:9px;margin-left:10px}
+.vtabs b{font-weight:500;font-size:13px;padding:4px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.vtabs b.on{background:var(--panel);box-shadow:0 1px 3px rgba(45,40,30,.18);font-weight:600}
+.vtabs b span{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:3px}
+.pagehead{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.pagehead h2{margin:0;font-size:18px}
+.pagehead .muted{font-size:12px}
+.ctools{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.ctools input{flex:1;min-width:240px}
+.cbox{padding:12px 14px}
+.grp .cbox{padding:0}
+.cmt{border-left:3px solid var(--ink2);padding:3px 10px;margin-bottom:10px}
+.cmt .ch{display:flex;gap:8px;align-items:baseline;font-size:12px;flex-wrap:wrap}
+.cmt .ch > span{color:var(--muted);font-family:var(--mono);font-size:11px}
+.ctag{font-family:var(--mono);font-size:11px;background:var(--field);border:1px solid var(--line);border-radius:4px;padding:0 6px;text-decoration:none}
+a.ctag:hover{border-color:var(--accent)}
+.cdel{margin-left:auto;font-size:11px;color:var(--muted)}
+.cmt .ct{font-size:13px;white-space:pre-wrap;margin-top:2px}
+.cfeed{border-bottom:1px solid var(--line);padding:4px 0 2px;margin-bottom:6px}
+.cfeed .cmt{margin-bottom:4px}
+.cctx{font-size:11.5px;color:var(--muted);padding-left:13px;margin-bottom:4px}
+.cnew{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.cnewb{display:flex;gap:8px;justify-content:flex-end}
+.cnewb select{width:auto;max-width:340px;padding:4px 8px;font-size:13px}
+@media (max-width:900px){.vtabs{margin-left:0}}
 /* drawer */
 .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(45,40,30,.14);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;z-index:10}
 .drawer.open{transform:none}
@@ -173,6 +193,7 @@ body.locked header,body.locked .app,body.locked .banner{display:none}
 <div class="banner" id="banner" hidden></div>
 <header>
   <div><h1><span>Ž-17</span>RMC užsakymų registras</h1><div class="sub" id="sub">SharePoint</div></div>
+  <nav class="vtabs" id="tabs"></nav>
   <div class="sp"></div>
   <button id="reload" title="Iš naujo įkelti duomenis iš SharePoint">Atnaujinti</button>
   <span class="who" id="who"></span>
@@ -211,6 +232,7 @@ const SP_CONFIG = {
   siteUrl:  'https://achemosgrupelt.sharepoint.com/sites/Iremas2',   // SharePoint svetainė, kurioje sukurti sąrašai
   ordersList: 'Z17_Uzsakymai',
   linesList:  'Z17_RMC_eilutes',
+  commentsList: 'Z17_Komentarai',  // bendras komentarų sąrašas
   settingsList: 'Z17_Nustatymai'   // Title = raktas, „Reikšmė“ = reikšmė (pvz. FolderLookupUrl – NEdėti į kodą, repo viešas)
 };
 /* ===================================================================== */
@@ -223,8 +245,7 @@ const ORDER_FIELDS = [
   ['tipas',     'Projektas',     'Projektas',     'text'],
   ['uzsakovas', 'Uzsakovas',     'Užsakovas',     'text'],
   ['vieta',     'ObjektoVieta',  'Objekto vieta', 'text'],
-  ['aplankas',  'Aplankas',      'Aplankas',      'text', true],  // neprivalomas: išsaugota aplanko nuoroda
-  ['komentarai','Komentarai',    'Komentarai',    'text', true]   // neprivalomas: užsakymo komentarai
+  ['aplankas',  'Aplankas',      'Aplankas',      'text', true]   // neprivalomas: išsaugota aplanko nuoroda
 ];
 const LINE_FIELDS = [
   ['rmc',         'Title',          'RMC Nr.',               'text'],
@@ -245,9 +266,10 @@ const LINE_FIELDS = [
   ['pastaba',     'Pastaba',        'Pastaba',               'text'],
   ['atkr',        'AtkrData',       'Atkrovimo data',        'date'],
   ['kitasUzs',    'KitasUzsakovas', 'Kitas užsakovas',       'text'],
-  ['kitaVieta',   'KitaVieta',      'Kita objekto vieta',    'text'],
-  ['komentarai',  'Komentarai',     'Komentarai',            'text', true]   // neprivalomas
+  ['kitaVieta',   'KitaVieta',      'Kita objekto vieta',    'text']
 ];
+// Komentarai: vienas bendras sąrašas. Title = Užs. Nr.; „RMC Nr.“ tuščias – komentaras visam užsakymui. Autorius ir laikas – iš SharePoint.
+const COMMENT_FIELDS = [['nr', 'Title', 'Užs. Nr.', 'text'], ['rmc', 'RMC', 'RMC Nr.', 'text'], ['text', 'Komentaras', 'Komentaras', 'text']];
 const SETTING_FIELDS = [['key', 'Title', 'Title', 'text'], ['value', 'Reiksme', 'Reikšmė', 'text']];
 const TIPAI = ['Remontas', 'Aptarnavimas', 'Kitos paslaugos, Iremas'];
 const NO_NR = '(be Užs. Nr.)';
@@ -365,7 +387,7 @@ function makeSpStore(){
     return { all, create, update, remove, missing: () => missing, has: k => !!(map && map[k]) };
   }
   const orders = makeList(SP_CONFIG.ordersList, ORDER_FIELDS), lines = makeList(SP_CONFIG.linesList, LINE_FIELDS),
-        settings = makeList(SP_CONFIG.settingsList, SETTING_FIELDS);
+        settings = makeList(SP_CONFIG.settingsList, SETTING_FIELDS), comments = makeList(SP_CONFIG.commentsList, COMMENT_FIELDS);
 
   return {
     mode: 'sp',
@@ -382,12 +404,13 @@ function makeSpStore(){
     logout: () => pca.logoutRedirect({ account, postLogoutRedirectUri: location.origin + location.pathname }),
     user: () => account && (account.name || account.username),
     async load(){
-      const [o, l, s] = await Promise.all([orders.all(), lines.all(),
-        settings.all().catch(e => { console.info('Nustatymų sąrašas nepasiekiamas:', e.message); return []; })]);
+      const [o, l, s, c] = await Promise.all([orders.all(), lines.all(),
+        settings.all().catch(e => { console.info('Nustatymų sąrašas nepasiekiamas:', e.message); return []; }),
+        comments.all().catch(e => { console.info('Komentarų sąrašas nepasiekiamas:', e.message); return null; })]);
       const cfg = {}; s.forEach(x => { if (x.key) cfg[x.key.trim()] = String(x.value || '').trim(); });
-      return { orders: o, lines: l, settings: cfg, missing: orders.missing().concat(lines.missing()) };
+      return { orders: o, lines: l, settings: cfg, comments: c, missing: orders.missing().concat(lines.missing(), c ? comments.missing() : []) };
     },
-    orders, lines
+    orders, lines, comments
   };
 }
 
@@ -410,7 +433,8 @@ function makeDemoStore(){
     update: async () => {}, remove: async () => {}
   });
   return { mode: 'demo', signIn: async () => ({ name: 'Demo' }), login(){}, logout(){ location.reload(); }, user: () => 'Demo režimas',
-    load: async () => ({ orders: O, lines: L, settings: {}, missing: [] }), orders: list(O), lines: list(L) };
+    load: async () => ({ orders: O, lines: L, settings: {}, comments: [{ id: id++, nr: 'I269001', rmc: '', text: 'Užsakovas patvirtino terminą telefonu.', author: 'Demo', created: new Date(Date.now() - 36e5).toISOString() }, { id: id++, nr: 'I269001', rmc: '9001', text: 'Laukiam medžiagos 42CrMo4.', author: 'Demo', created: new Date().toISOString() }], missing: [] }),
+    orders: list(O), lines: list(L), comments: list([]) };
 }
 
 const store = configured ? makeSpStore() : makeDemoStore();
@@ -418,7 +442,7 @@ const store = configured ? makeSpStore() : makeDemoStore();
 /* =====================================================================
    BŪSENA IR VAIZDAS
    ===================================================================== */
-const S = { orders: [], lines: [], settings: {}, folders: {}, sel: null, q: '', filt: 'all', open: null, limit: 150, busy: false };
+const S = { orders: [], lines: [], comments: [], commentsOff: false, view: 'reg', settings: {}, folders: {}, sel: null, q: '', filt: 'all', open: null, limit: 150, busy: false };
 const VIEW_KEY = 'z17_view';
 
 function groups(){
@@ -463,7 +487,7 @@ function matches(g){
   if (!orderMatch(g)) return false;
   const q = S.q.toLowerCase().split(/\s+/).filter(Boolean);
   if (!q.length) return true;
-  const hay = [g.o.nr, g.o.uzsakovas, g.o.vieta, ...g.lines.flatMap(l => [l.rmc, l.turinys, l.brez, l.mat, l.vykdo, l.technologas, l.po, l.kitasUzs, l.komentarai]), g.o.komentarai].join(' ').toLowerCase();
+  const hay = [g.o.nr, g.o.uzsakovas, g.o.vieta, ...g.lines.flatMap(l => [l.rmc, l.turinys, l.brez, l.mat, l.vykdo, l.technologas, l.po, l.kitasUzs]), ...cList(g.o.nr).map(c => c.text)].join(' ').toLowerCase();
   return q.every(w => hay.includes(w));
 }
 
@@ -551,6 +575,7 @@ function renderList(){
 
 /* ---------- dešinė: užsakymas ir eilutės ---------- */
 function renderMain(){
+  if (S.view === 'cmt') return renderCommentsView();
   const g = group(S.sel), m = $('main');
   if (!g){ m.innerHTML = '<div class="empty">Pasirinkite užsakymą kairėje arba sukurkite naują.</div>'; return; }
   const o = g.o, ls = g.lines;
@@ -567,7 +592,6 @@ function renderMain(){
     <div class="f"><label>Eilutės</label><div class="mono">${ls.length}</div></div>
     <div class="f"><label>Norma iš viso</label><div class="mono">${num(sumN)} val.</div></div>
     <div class="f"><label>Sąmatinė vertė</label><div class="mono">${num(sumV)} €</div></div>
-    ${o.komentarai ? `<div class="ocmt"><label>Komentarai</label><div>${esc(o.komentarai)}</div></div>` : ''}
   </div>
   <div class="toolbar"><h3>RMC eilutės</h3>
     ${lineFiltered() && shownLines.length !== ls.length ? `<span class="finfo">Pagal filtrus rodoma ${shownLines.length} iš ${ls.length} · <a href="#" data-act="showAll">rodyti visas</a></span>` : ''}
@@ -578,11 +602,10 @@ function renderMain(){
       <thead><tr><th>RMC Nr.</th><th>Reg. data</th><th>Užsakymo turinys</th><th class="num">Kiekis</th><th class="hide-sm">Atstovas</th><th class="hide-sm">Vykdo</th><th class="hide-sm">Technologas</th><th class="num">Norma</th><th>Terminas</th><th>Būsena</th><th></th></tr></thead>
       <tbody>${shownLines.map(l => { const [s, c] = status(l); return `
         <tr class="ln ${S.open === l.id ? 'sel' : ''}" data-act="openLine" data-id="${l.id}">
-          <td class="nw"><b>${mk(l.rmc || '—')}</b></td>
+          <td class="nw"><b>${mk(l.rmc || '—')}</b>${cList(o.nr, l.rmc).length ? `<div class="sub2" title="Komentarai">kom. ${cList(o.nr, l.rmc).length}</div>` : ''}</td>
           <td class="mono nw">${fmt(l.data)}</td>
           <td style="min-width:230px">${mk(l.turinys) || '<i class="muted">neįvesta</i>'}
             ${l.kitasUzs || l.kitaVieta ? `<div class="sub2">${esc([l.kitasUzs, l.kitaVieta].filter(Boolean).join(' · '))}</div>` : ''}
-            ${l.komentarai ? `<div class="lcmt" title="${esc(l.komentarai)}">${mk(l.komentarai.length > 90 ? l.komentarai.slice(0, 90) + '…' : l.komentarai)}</div>` : ''}
             ${l.brez || l.mat ? `<div class="codes">${l.brez ? `<span class="code" title="Brėžinys">${mk(l.brez)}</span>` : ''}${l.mat ? `<span class="code mat" title="Medžiaga">${mk(l.mat)}</span>` : ''}</div>` : ''}</td>
           <td class="num">${esc(l.kiekis ?? '')}</td>
           <td class="hide-sm">${esc(l.atstovas || '—')}</td>
@@ -594,8 +617,67 @@ function renderMain(){
           <td><button class="sm" data-act="lmenu" data-id="${l.id}" title="Veiksmai">⋯</button></td>
         </tr>`; }).join('')}</tbody></table>`
     : `<div class="empty">Šis užsakymas dar neturi eilučių.<br><br><button class="primary" data-act="addLine">+ Pridėti pirmą eilutę</button></div>`}
-  </div>`;
+  </div>
+  ${o.nr !== NO_NR ? `<div class="toolbar"><h3>Komentarai${cList(o.nr).length ? ' · ' + cList(o.nr).length : ''}</h3><span class="finfo">užsakymo ir visų jo eilučių</span></div><div class="card cbox">${commentsHTML(o.nr, undefined, true)}</div>` : ''}`;
 }
+/* ---------- komentarai (bendras sąrašas Z17_Komentarai) ---------- */
+// rmc: undefined – visi užsakymo komentarai; '' – tik bendri užsakymo; 'X' – tik eilutės X
+function cList(nr, rmc){
+  return S.comments.filter(c => c.nr === nr && (rmc === undefined || String(c.rmc || '') === String(rmc || '')))
+    .sort((a, b) => String(a.created).localeCompare(String(b.created)));
+}
+function cItem(c, showOrder, showRmc){
+  const me = store.user();
+  return `<div class="cmt">
+    <div class="ch"><b>${esc(c.author || '—')}</b><span>${esc(fmtDT(c.created))}</span>
+      ${showOrder ? `<a href="#" class="ctag" data-act="goOrder" data-nr="${esc(c.nr)}">${esc(c.nr)}</a>` : ''}
+      ${showRmc && c.rmc ? `<a href="#" class="ctag" data-act="cmtLine" data-nr="${esc(c.nr)}" data-rmc="${esc(c.rmc)}">RMC ${esc(c.rmc)}</a>` : (showRmc ? '<span class="ctag muted">visam užsakymui</span>' : '')}
+      ${c.author && c.author === me ? `<a href="#" class="cdel" data-act="delCmt" data-id="${c.id}">ištrinti</a>` : ''}</div>
+    <div class="ct">${esc(c.text)}</div></div>`;
+}
+function commentsHTML(nr, rmc, orderView){
+  if (S.commentsOff) return `<div class="muted" style="font-size:12px">Komentarai neįjungti: svetainėje sukurkite sąrašą <b>${esc(SP_CONFIG.commentsList)}</b> (žr. README).</div>`;
+  const list = cList(nr, orderView ? undefined : rmc);
+  const g = group(nr);
+  const target = orderView
+    ? `<select class="ctarget"><option value="">Visam užsakymui</option>${(g ? g.lines : []).map(l => `<option value="${esc(l.rmc)}">RMC ${esc(l.rmc)} – ${esc(String(l.turinys || '').slice(0, 40))}</option>`).join('')}</select>` : '';
+  return `${list.map(c => cItem(c, false, orderView)).join('') || '<div class="muted" style="font-size:12px;margin-bottom:8px">Komentarų dar nėra.</div>'}
+    <div class="cnew"><textarea rows="2" class="ctext" placeholder="Rašyti komentarą…"></textarea>
+      <div class="cnewb">${target}<button data-act="addCmt" data-nr="${esc(nr)}" data-rmc="${esc(orderView ? '' : (rmc || ''))}">Pridėti</button></div></div>`;
+}
+function renderCommentsView(){
+  const m = $('main');
+  if (S.commentsOff){ m.innerHTML = `<div class="empty">Komentarai neįjungti: svetainėje sukurkite sąrašą <b>${esc(SP_CONFIG.commentsList)}</b> (žr. README).</div>`; return; }
+  const q = (S.cq || '').toLowerCase().trim(), me = store.user(), f = S.cf || 'all';
+  const since = d => Date.now() - new Date(d).getTime();
+  let list = S.comments.slice().sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  if (f === 'mine') list = list.filter(c => c.author === me);
+  if (f === 'today') list = list.filter(c => localDate(c.created) === TODAY);
+  if (f === 'week') list = list.filter(c => since(c.created) < 7 * 864e5);
+  if (q) list = list.filter(c => [c.nr, c.rmc, c.text, c.author, group(c.nr)?.o.uzsakovas].join(' ').toLowerCase().includes(q));
+  const shown = list.slice(0, S.climit || 200);
+  m.innerHTML = `
+    <div class="pagehead"><h2>Komentarai</h2><span class="muted">visi užsakymų ir eilučių komentarai, naujausi viršuje</span></div>
+    <div class="ctools"><input id="cq" placeholder="Ieškoti komentaruose: tekstas, Užs. Nr., RMC, autorius…" value="${esc(S.cq || '')}" autocomplete="off">
+      <div class="seg" style="width:auto">${[['all', 'Visi'], ['today', 'Šiandien'], ['week', '7 d.'], ['mine', 'Mano']].map(([k, n]) => `<b class="${f === k ? 'on' : ''}" data-act="cf" data-v="${k}">${n}</b>`).join('')}</div></div>
+    <div class="card cbox">${shown.map(c => {
+      const g = group(c.nr);
+      return `<div class="cfeed">${cItem(c, true, true)}${g && g.o.uzsakovas ? `<div class="cctx">${esc(g.o.uzsakovas)}${c.rmc ? ' · ' + esc(String((g.lines.find(l => String(l.rmc) === String(c.rmc)) || {}).turinys || '').slice(0, 80)) : ''}</div>` : ''}</div>`; }).join('')
+      || '<div class="empty">Komentarų nerasta</div>'}
+    ${list.length > shown.length ? `<div class="more"><a href="#" data-act="cmore">Rodyti daugiau (${list.length - shown.length})</a></div>` : ''}</div>`;
+  const ci = $('cq'); ci.oninput = () => { clearTimeout(ci._t); ci._t = setTimeout(() => { S.cq = ci.value; const pos = ci.selectionStart; renderCommentsView(); const n = $('cq'); n.focus(); n.setSelectionRange(pos, pos); }, 200); };
+}
+function renderTabs(){
+  const n = S.comments.length;
+  $('tabs').innerHTML = [['reg', 'Registras'], ['cmt', 'Komentarai' + (n ? ` <span>${n}</span>` : '')]].map(([k, l]) => `<b class="${S.view === k ? 'on' : ''}" data-act="view" data-v="${k}">${l}</b>`).join('');
+}
+function refreshComments(){
+  renderTabs();
+  if (S.view === 'cmt') return renderCommentsView();
+  renderMain();
+  if (draft && !draft._isNew){ const box = $('drawer').querySelector('.cbox'); if (box) box.innerHTML = commentsHTML(draft.uzsNr || NO_NR, draft.rmc, false); }
+}
+
 /* ---------- užsakymo aplankas (Power Automate „folder lookup“ srautas) ----------
    Srauto URL su sig= raktu laikomas SharePoint sąraše Z17_Nustatymai (raktas FolderLookupUrl),
    ne kode – repozitorija vieša. Rastos nuorodos įsimenamos naršyklėje. */
@@ -677,7 +759,7 @@ function folderManualModal(nr){
 }
 function updateFolderSlot(nr){ const el = $('folderSlot'); if (el && S.sel === nr) el.innerHTML = folderHTML(nr); }
 
-function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderFilters(); renderList(); renderMain(); }
+function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderTabs(); renderFilters(); renderList(); renderMain(); }
 // atidarius užsakymą – automatiškai surasti aplanką (vieną kartą; rastas įsimenamas)
 const renderMainBase = renderMain;
 renderMain = function(){ renderMainBase(); const g = group(S.sel); if (g && g.o.nr !== NO_NR) lookupFolder(g.o.nr); };
@@ -780,7 +862,7 @@ function openLine(line, isNew){
         <div class="full"><label class="l">Pastaba</label><input data-f="pastaba" value="${esc(draft.pastaba || '')}"></div>
       </div></div>
       <div class="grp"><h4>Atkrovimas</h4><div class="grid">${fld('atkr', 'Atkrovimo data', 'date')}</div></div>
-      ${hasField('lines', 'komentarai') ? `<div class="grp"><h4>Komentarai</h4><textarea rows="4" data-f="komentarai" placeholder="Pastabos, susitarimai, kas laukiama…">${esc(draft.komentarai || '')}</textarea></div>` : ''}
+      ${isNew ? '' : `<div class="grp"><h4>Komentarai</h4><div class="cbox">${commentsHTML(g.o.nr, line.rmc, false)}</div></div>`}
       ${isNew ? '' : `<div class="meta">Sukurta: ${esc(fmtFull(localDate(line.created)))}${line.author ? ' · ' + esc(line.author) : ''}<br>Pakeista: ${esc(line.modified ? fmtDT(line.modified) : '—')}${line.editor ? ' · ' + esc(line.editor) : ''}</div>`}
     </div>
     <div class="df">
@@ -847,12 +929,10 @@ function orderForm(o, fixedNr){
     <div><label class="l req">Projektas</label><select id="m_tipas">${TIPAI.map(t => `<option ${v.tipas === t ? 'selected' : ''}>${t}</option>`).join('')}${v.tipas && !TIPAI.includes(v.tipas) ? `<option selected>${esc(v.tipas)}</option>` : ''}</select></div>
     <div class="full"><label class="l req">Užsakovas</label>${combo('id="m_uzs"', v.uzsakovas, uz, 'Pradėkite rašyti…')}</div>
     <div class="full"><label class="l">Objekto vieta</label>${combo('id="m_vieta"', v.vieta || '', vt)}</div>
-    ${hasField('orders', 'komentarai') ? `<div class="full"><label class="l">Komentarai</label><textarea id="m_cmt" rows="3">${esc(v.komentarai || '')}</textarea></div>` : ''}
     ${o ? '' : `<label class="full" style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="m_line" checked style="width:auto">Iš karto pridėti pirmą RMC eilutę</label>`}
   </div>`;
 }
-const readOrder = () => Object.assign({ nr: $('m_nr').value.trim(), tipas: $('m_tipas').value, uzsakovas: $('m_uzs').value.trim(), vieta: $('m_vieta').value.trim() },
-  $('m_cmt') ? { komentarai: $('m_cmt').value.trim() } : {});
+const readOrder = () => ({ nr: $('m_nr').value.trim(), tipas: $('m_tipas').value, uzsakovas: $('m_uzs').value.trim(), vieta: $('m_vieta').value.trim() });
 // ar sąraše yra neprivalomas stulpelis (demo režime – visada)
 const hasField = (list, k) => !store[list].has || store[list].has(k);
 async function busy(btn, fn){
@@ -882,7 +962,7 @@ document.addEventListener('click', e => {
     case 'ftoggle': if (e.target.closest('a')) return; S.fOpen = !S.fOpen; saveF(); renderFilters(); break;
     case 'fclear': e.preventDefault(); S.f = Object.assign({}, F_EMPTY); applyF(); break;
     case 'showAll': e.preventDefault(); S.showAll = !S.showAll; renderMain(); break;
-    case 'selo': if (draft && !closeAsk()) return; S.sel = t.dataset.nr; S.showAll = false; try { localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderList(); renderMain(); break;
+    case 'selo': if (draft && !closeAsk()) return; S.sel = t.dataset.nr; if (S.view !== 'reg'){ S.view = 'reg'; renderTabs(); } S.showAll = false; try { localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderList(); renderMain(); break;
     case 'openLine': if (e.target.closest('button')) return; if (draft && !closeAsk()) return; openLine(line); break;
     case 'lmenu': { e.stopPropagation(); const r = t.getBoundingClientRect();
       showMenu(r.left - 160, r.bottom + 4, [['Redaguoti', 'm_open', id], ['Kopijuoti eilutę', 'copyLine', id], '-', ['Ištrinti', 'delLine', id, true]]); break; }
@@ -906,10 +986,25 @@ document.addEventListener('click', e => {
         if (withLine && !group(v.nr).lines.length) openLine(newLine(group(v.nr), {}, false), true); }); break; }
     case 'editOrder': modal('Redaguoti ' + esc(g.o.nr), orderForm(g.o), `<button data-act="closeM">Atšaukti</button><button class="primary" data-act="saveOrder">Išsaugoti</button>`); break;
     case 'saveOrder': { const v = readOrder(); if (!v.uzsakovas){ toast('Nurodykite užsakovą', true); break; }
-      const patch = {}; ['tipas', 'uzsakovas', 'vieta', 'komentarai'].forEach(k => { if (k in v && (g.o[k] || '') !== v[k]) patch[k] = v[k]; });
+      const patch = {}; ['tipas', 'uzsakovas', 'vieta'].forEach(k => { if ((g.o[k] || '') !== v[k]) patch[k] = v[k]; });
       if (!Object.keys(patch).length){ closeModal(); break; }
       busy(t, async () => { await store.orders.update(g.o.id, patch); Object.assign(g.o, patch); closeModal(); render(); toast(g.o.nr + ' atnaujintas'); }); break; }
     case 'closeM': closeModal(); break;
+    case 'view': if (draft && !closeAsk()) return; S.view = t.dataset.v; renderTabs(); renderMain(); $('main').scrollTop = 0; break;
+    case 'goOrder': e.preventDefault(); if (draft && !closeAsk()) return; S.sel = t.dataset.nr; S.view = 'reg'; renderTabs(); renderList(); renderMain(); break;
+    case 'cmtLine': { e.preventDefault(); const l = S.lines.find(x => (x.uzsNr || NO_NR) === t.dataset.nr && String(x.rmc) === t.dataset.rmc);
+      if (!l){ toast('Eilutė RMC ' + t.dataset.rmc + ' nerasta', true); break; }
+      if (draft && !closeAsk()) return; S.sel = t.dataset.nr; if (S.view !== 'reg'){ S.view = 'reg'; renderTabs(); renderList(); } openLine(l); break; }
+    case 'cf': S.cf = t.dataset.v; S.climit = 200; renderCommentsView(); break;
+    case 'cmore': e.preventDefault(); S.climit = (S.climit || 200) + 300; renderCommentsView(); break;
+    case 'addCmt': { const box = t.closest('.cbox'), ta = box.querySelector('.ctext'), text = ta.value.trim();
+      if (!text){ toast('Įrašykite komentarą', true); break; }
+      const sel = box.querySelector('.ctarget'), nr = t.dataset.nr, rmc = sel ? sel.value : t.dataset.rmc;
+      busy(t, async () => { const c = await store.comments.create({ nr, rmc, text });
+        S.comments.push(Object.assign(c, { author: store.user(), created: c.created || new Date().toISOString() }));
+        refreshComments(); toast('Komentaras pridėtas'); }); break; }
+    case 'delCmt': { e.preventDefault(); const c = S.comments.find(x => x.id === id); if (!c || !confirm('Ištrinti komentarą?')) break;
+      busy(t, async () => { await store.comments.remove(id); S.comments = S.comments.filter(x => x.id !== id); refreshComments(); toast('Komentaras ištrintas'); }); break; }
     case 'folderRefresh': lookupFolder(t.dataset.nr, true); break;
     case 'folderManual': folderManualModal(t.dataset.nr); break;
     case 'folderMenu': { e.stopPropagation(); const r = t.getBoundingClientRect(), nr = t.dataset.nr;
@@ -986,7 +1081,7 @@ async function loadData(){
   $('main').innerHTML = '<div class="loading">Įkeliami duomenys iš SharePoint…</div>';
   try {
     const r = await store.load();
-    S.orders = r.orders; S.lines = r.lines; S.settings = r.settings || {};
+    S.orders = r.orders; S.lines = r.lines; S.settings = r.settings || {}; S.comments = r.comments || []; S.commentsOff = !r.comments;
     if (r.missing.length){ $('banner').hidden = false; document.body.classList.add('has-banner'); $('banner').innerHTML = '<b>Sąraše nerasti stulpeliai:</b> ' + esc(r.missing.join(', ')) + '. Patikrinkite stulpelių pavadinimus (žr. README).'; }
     $('sub').textContent = (store.mode === 'sp' ? SP_CONFIG.siteUrl.replace(/^https:\/\//, '') : 'demo') + ' · ' + S.orders.length + ' užs. · ' + S.lines.length + ' eil.';
     try { const v = localStorage.getItem(VIEW_KEY); if (v) S.sel = v; } catch (_) {}
