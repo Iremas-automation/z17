@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Iremas</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.30.0/lib/msal-browser.min.js"></script>
+<style>
+:root{
+  --bg:#dcd9d1;--panel:#ebe8e2;--field:#f3f1ec;--line:#c9c5bb;--text:#2b2a26;--muted:#77726a;
+  --accent:#a9542c;--accent-weak:#e0d3c8;--ink2:#3f5866;--ok:#4d7a52;--ok-bg:#d3dccc;--bad:#a8382d;--warn-bg:#e6dbbd;
+  --shadow:0 6px 18px rgba(45,40,30,.16);--r:7px;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "IBM Plex Sans","Segoe UI",system-ui,sans-serif}
+a{color:var(--accent);text-underline-offset:3px}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.sp{flex:1}
+header{display:flex;align-items:center;gap:12px;padding:9px 18px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:15px;margin:0;font-weight:700}
+header h1 span{font-family:var(--mono);background:var(--accent);color:#fff;padding:1px 6px;margin-right:8px;font-size:13px;border-radius:4px}
+header .sub{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.who{font-size:13px;color:var(--muted)}
+input,select,textarea{font:inherit;color:inherit;background:var(--field);border:1px solid var(--line);border-radius:var(--r);padding:6px 9px;width:100%}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
+input:disabled{color:var(--muted);background:repeating-linear-gradient(-45deg,transparent 0 5px,#e2dfd8 5px 6px)}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:var(--r);padding:6px 12px;cursor:pointer;white-space:nowrap}
+button:hover:not(:disabled){background:var(--accent-weak)}
+button:disabled{opacity:.5;cursor:default}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:hover:not(:disabled){background:#934622}
+button.sm{padding:2px 8px;font-size:12px}
+button.danger{color:var(--bad)}
+.banner{background:var(--warn-bg);padding:7px 18px;font-size:13px;border-bottom:1px solid var(--line)}
+.app{display:grid;grid-template-columns:320px 1fr;height:calc(100vh - 53px)}
+body.has-banner .app{height:calc(100vh - 88px)}
+aside{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.search{padding:12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;background:var(--bg);padding:3px;border-radius:9px;gap:2px}
+.seg b{flex:1;text-align:center;font-weight:500;font-size:12px;padding:3px 6px;border-radius:6px;cursor:pointer}
+.seg b.on{background:var(--panel);box-shadow:0 1px 3px rgba(45,40,30,.18);font-weight:600}
+.seg b span{font-family:var(--mono);color:var(--muted);margin-left:4px}
+.olist{overflow:auto;flex:1}
+.oitem{padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:1px 8px}
+.oitem:hover{background:var(--accent-weak)}
+.oitem.sel{background:var(--accent-weak);box-shadow:inset 3px 0 0 var(--accent)}
+.oitem .nr{font-family:var(--mono);font-weight:600}
+.oitem .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.oitem .cl{color:var(--muted);font-size:12px;grid-column:1/-1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.more{padding:10px;text-align:center;font-size:12px}
+.newo{padding:10px 12px;border-top:1px solid var(--line)}
+main{overflow:auto;padding:18px 22px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.ohead{padding:14px 18px;display:flex;flex-wrap:wrap;gap:14px 0}
+.ohead .title{flex-basis:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.ohead h2{margin:0;font-size:22px;font-family:var(--mono);font-weight:600;letter-spacing:-.02em}
+.f{padding:0 24px 0 14px;border-left:1px solid var(--line)}
+.title + .f{border-left:0;padding-left:0}
+.f label,.l{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-family:var(--mono);margin-bottom:2px}
+.f div{font-weight:500}
+.tag{font-size:11px;padding:1px 7px;border-radius:4px;font-weight:600;font-family:var(--mono);text-transform:uppercase;letter-spacing:.03em;border:1px solid color-mix(in srgb,currentColor 45%,transparent);white-space:nowrap}
+.t-rem{color:#94690f}.t-kit{color:var(--ink2)}.t-apt{color:var(--ok)}
+.toolbar{display:flex;align-items:center;gap:8px;margin:18px 0 8px}
+.toolbar h3{margin:0;font-size:11px;flex:1;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono)}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;font-weight:500;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;font-family:var(--mono)}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13px}
+tbody tr:last-child td{border-bottom:0}
+tr.ln{cursor:pointer}
+tr.ln:hover td,tr.ln.sel td{background:var(--accent-weak)}
+td b{font-family:var(--mono);font-weight:600}
+.num{text-align:right;font-family:var(--mono)}
+.nw{white-space:nowrap}
+.code{font-family:var(--mono);font-size:11.5px;background:var(--field);border:1px solid var(--line);border-radius:4px;padding:0 6px;white-space:nowrap}
+.code.mat{background:var(--ok-bg);border-color:transparent}
+.codes{display:flex;gap:5px;margin-top:3px;flex-wrap:wrap}
+.sub2{font-size:11.5px;color:var(--muted)}
+.st{font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.st::before{content:"";width:8px;height:8px;border-radius:2px;background:currentColor}
+.empty{padding:36px;text-align:center;color:var(--muted)}
+mark{background:#f2d59a;color:inherit;border-radius:2px}
+/* drawer */
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(45,40,30,.14);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;z-index:10}
+.drawer.open{transform:none}
+.dh{padding:11px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.dh h3{margin:0;flex:1;font-size:15px;font-family:var(--mono)}
+.db{padding:4px 18px 18px;overflow:auto;flex:1}
+.grp{margin-top:16px}
+.grp h4{margin:0 0 8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px}
+.grp h4::after{content:"";flex:1;height:1px;background:var(--line)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.full{grid-column:1/-1}
+.req::after{content:" •";color:var(--accent)}
+.inh{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.meta{font-size:11.5px;color:var(--muted);margin-top:16px;font-family:var(--mono)}
+.df{padding:10px 16px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.warn{background:var(--warn-bg);border-radius:var(--r);padding:7px 10px;font-size:12px;margin-top:12px}
+/* modal, menu, toast, gate */
+.scrim{position:fixed;inset:0;background:rgba(45,42,36,.35);display:none;place-items:center;z-index:20;padding:16px}
+.scrim.open{display:grid}
+.modal{background:var(--panel);border-radius:12px;box-shadow:0 20px 50px rgba(30,25,20,.3);width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal .mh{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.modal .mh h3{margin:0;flex:1;font-size:15px}
+.modal .mb{padding:16px 18px;overflow:auto}
+.modal .mf{padding:10px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.menu{position:fixed;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:4px;z-index:30;min-width:190px}
+.menu div{padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+.menu div:hover{background:var(--accent-weak)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+#toasts{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:40;align-items:flex-end}
+.toast{background:var(--panel);border-left:4px solid var(--ok);border-radius:var(--r);box-shadow:var(--shadow);padding:8px 14px;font-size:13px;max-width:460px}
+.toast.err{border-left-color:var(--bad)}
+.gate{min-height:100vh;display:grid;place-items:center;padding:16px}
+.gate .card{padding:28px 30px;width:min(400px,100%);text-align:center}
+.gate h2{margin:0 0 6px;font-size:18px}
+.gate p{color:var(--muted);margin:0 0 18px}
+.loading{padding:40px;text-align:center;color:var(--muted)}
+body.locked header,body.locked .app,body.locked .banner{display:none}
+@media (max-width:900px){.app{grid-template-columns:1fr;height:auto!important}aside{max-height:340px}main{padding:14px 16px}.hide-sm{display:none}.grid{grid-template-columns:1fr}.f{border-left:0;padding-left:0}}
+</style>
+</head>
+<body class="locked" data-title="Ž-17 RMC užsakymai">
+<div id="gate"></div>
+<div class="banner" id="banner" hidden></div>
+<header>
+  <div><h1><span>Ž-17</span>RMC užsakymų registras</h1><div class="sub" id="sub">SharePoint</div></div>
+  <div class="sp"></div>
+  <button id="reload" title="Iš naujo įkelti duomenis iš SharePoint">Atnaujinti</button>
+  <span class="who" id="who"></span>
+  <button id="logout" hidden>Atsijungti</button>
+</header>
+<div class="app">
+  <aside>
+    <div class="search">
+      <input id="q" placeholder="Ieškoti: Užs. Nr., RMC, užsakovas, turinys, brėžinys…" autocomplete="off">
+      <div class="seg" id="flt"></div>
+    </div>
+    <div class="olist" id="olist"></div>
+    <div class="newo"><button class="primary" style="width:100%" data-act="newOrder">+ Naujas užsakymas</button></div>
+  </aside>
+  <main id="main"><div class="loading">Įkeliami duomenys…</div></main>
+</div>
+<div class="drawer" id="drawer"></div>
+<div class="scrim" id="scrim"><div class="modal" id="modal"></div></div>
+<div id="toasts"></div>
+
+<script>
+/* =====================================================================
+   KONFIGŪRACIJA (Client ID ir Tenant ID nėra slapti – juos galima laikyti GitHub'e)
+   ===================================================================== */
+const SP_CONFIG = {
+  tenantId: 'f300c84f-87f0-4d9e-8284-1e36dbe06fbe',             // Entra ID → Directory (tenant) ID
+  clientId: 'ČIA_CLIENT_ID',                                     // App registration → Application (client) ID
+  siteUrl:  'https://achemosgrupelt.sharepoint.com/sites/SVETAINE', // SharePoint svetainė, kurioje sukurti sąrašai
+  ordersList: 'Z17_Uzsakymai',
+  linesList:  'Z17_RMC_eilutes'
+};
+/* ===================================================================== */
+
+/* Laukų aprašas: ui raktas → SharePoint stulpelio rodomas pavadinimas (kaip importuota iš Excel).
+   Stulpelis randamas pagal vidinį pavadinimą, EntityPropertyName arba rodomą pavadinimą,
+   todėl veikia ir su Excel importu (field_N), ir su rankomis sukurtais stulpeliais. */
+const ORDER_FIELDS = [
+  ['nr',        'Title',         'Užs. Nr.',      'text'],
+  ['tipas',     'Projektas',     'Projektas',     'text'],
+  ['uzsakovas', 'Uzsakovas',     'Užsakovas',     'text'],
+  ['vieta',     'ObjektoVieta',  'Objekto vieta', 'text']
+];
+const LINE_FIELDS = [
+  ['rmc',         'Title',          'RMC Nr.',               'text'],
+  ['uzsNr',       'UzsNr',          'Užs. Nr.',              'text'],
+  ['data',        'RegData',        'Registravimo data',     'date'],
+  ['atstovas',    'Atstovas',       'Užsakovo atstovas',     'text'],
+  ['turinys',     'Turinys',        'Užsakymo turinys',      'text'],
+  ['kiekis',      'Kiekis',         'Kiekis',                'num'],
+  ['verte',       'Verte',          'Sąmatinė vertė',        'num'],
+  ['po',          'PoNr',           'Prioritetas ir PO Nr.', 'text'],
+  ['terminas',    'Terminas',       'Užsakymo terminas',     'date'],
+  ['dok',         'Dokumentacija',  'Dokumentacija',         'text'],
+  ['vykdo',       'Vykdo',          'Vykdo',                 'text'],
+  ['technologas', 'Technologas',    'Technologas',           'text'],
+  ['norma',       'Norma',          'Norma (val.)',          'num'],
+  ['faktas',      'Faktas',         'Faktas (val.)',         'num'],
+  ['brez',        'Brezinys',       'Brėžinio Nr.',          'text'],
+  ['mat',         'Medziaga',       'Medžiaga',              'text'],
+  ['pastaba',     'Pastaba',        'Pastaba',               'text'],
+  ['atkr',        'AtkrData',       'Atkrovimo data',        'date'],
+  ['kitasUzs',    'KitasUzsakovas', 'Kitas užsakovas',       'text'],
+  ['kitaVieta',   'KitaVieta',      'Kita objekto vieta',    'text']
+];
+const TIPAI = ['Remontas', 'Aptarnavimas', 'Kitos paslaugos, Iremas'];
+const NO_NR = '(be Užs. Nr.)';
+
+/* ---------- pagalbinės ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const localDate = d => { const x = new Date(d); return isNaN(x) ? null : x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); };
+const TODAY = localDate(new Date());
+const fmt = d => d ? String(d).slice(5,10).replace('-','.') : '—';
+const fmtFull = d => d ? String(d).replace(/-/g,'.') : '—';
+const num = v => v == null || v === '' ? '—' : Number(v).toLocaleString('lt-LT', {maximumFractionDigits: 2});
+function toast(x, err){ const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = x; $('toasts').appendChild(t); setTimeout(() => t.remove(), err ? 7000 : 2600); }
+
+/* =====================================================================
+   DUOMENŲ SLUOKSNIS – SharePoint REST (arba demo režimas)
+   ===================================================================== */
+const configured = !/ČIA|SVETAINE|TENANT/.test(SP_CONFIG.tenantId + SP_CONFIG.clientId + SP_CONFIG.siteUrl);
+
+function makeSpStore(){
+  const spOrigin = new URL(SP_CONFIG.siteUrl).origin;
+  const SCOPES = [spOrigin + '/AllSites.Write'];
+  const pca = new msal.PublicClientApplication({
+    auth: { clientId: SP_CONFIG.clientId, authority: 'https://login.microsoftonline.com/' + SP_CONFIG.tenantId, redirectUri: location.origin + location.pathname },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  let account = null;
+
+  async function getToken(){
+    try { return (await pca.acquireTokenSilent({ scopes: SCOPES, account })).accessToken; }
+    catch (e) { return (await pca.acquireTokenPopup({ scopes: SCOPES, account })).accessToken; }
+  }
+  async function sp(url, method, body, extra){
+    const res = await fetch(url, {
+      method: method || 'GET',
+      headers: Object.assign({ Authorization: 'Bearer ' + await getToken(), Accept: 'application/json;odata=nometadata', 'Content-Type': 'application/json;odata=nometadata' }, extra || {}),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok){
+      let msg = res.status + ' ' + res.statusText;
+      try { const j = await res.json(); msg += ' – ' + ((j['odata.error'] && j['odata.error'].message.value) || (j.error && j.error.message) || ''); } catch (_) {}
+      throw new Error(msg);
+    }
+    return res.status === 204 ? null : res.json();
+  }
+  function makeList(title, spec){
+    const listUrl = SP_CONFIG.siteUrl.replace(/\/$/, '') + "/_api/web/lists/getbytitle('" + encodeURIComponent(title.replace(/'/g, "''")) + "')";
+    let map = null, missing = [];
+    async function fields(){
+      if (map) return map;
+      const r = await sp(listUrl + '/fields?$select=Title,InternalName,EntityPropertyName,TypeAsString,ReadOnlyField,Hidden');
+      const all = (r.value || []).filter(f => !f.ReadOnlyField && !f.Hidden);
+      const norm = x => String(x || '').trim().toLowerCase();
+      map = {}; missing = [];
+      spec.forEach(([ui, key, disp, type]) => {
+        const f = all.find(f => f.InternalName === key) || all.find(f => f.EntityPropertyName === key) ||
+                  all.find(f => norm(f.Title) === norm(disp)) || all.find(f => norm(f.Title) === norm(key));
+        if (f) map[ui] = { prop: f.EntityPropertyName || f.InternalName, internal: f.InternalName, type, spType: f.TypeAsString };
+        else missing.push(title + ' → ' + disp);
+      });
+      console.log('Stulpelių žemėlapis – ' + title, Object.fromEntries(Object.entries(map).map(([k, f]) => [k, f.prop + ' (' + f.spType + ')'])));
+      return map;
+    }
+    function fromItem(it){
+      const o = { id: it.Id, modified: it.Modified, editor: it.Editor && it.Editor.Title, created: it.Created, author: it.Author && it.Author.Title };
+      for (const [ui, f] of Object.entries(map)){
+        let v = it[f.prop]; if (v === undefined) v = it[f.internal];
+        if (f.type === 'date') v = v ? localDate(v) : null;
+        else if (f.type === 'num') v = v == null || v === '' ? null : Number(v);
+        else v = v == null ? '' : String(v);
+        o[ui] = v;
+      }
+      return o;
+    }
+    function toBody(obj){
+      const b = {};
+      for (const [ui, v] of Object.entries(obj)){
+        const f = map[ui]; if (!f) continue;
+        if (f.type === 'date') b[f.prop] = v ? v + 'T12:00:00Z' : null;          // vidurdienis UTC – data nepasislenka
+        else if (f.type === 'num') b[f.prop] = v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
+        else b[f.prop] = v == null ? '' : String(v);
+      }
+      return b;
+    }
+    async function all(){
+      await fields();
+      const sel = ['Id','Modified','Created','Editor/Title','Author/Title'].concat(Object.values(map).map(f => f.internal)).join(',');
+      let url = listUrl + '/items?$select=' + sel + '&$expand=Editor,Author&$top=5000', out = [];
+      while (url){ const r = await sp(url); out = out.concat(r.value || []); url = r['odata.nextLink'] || null; }
+      return out.map(fromItem);
+    }
+    async function create(obj){ await fields(); const it = await sp(listUrl + '/items', 'POST', toBody(obj)); return Object.assign({}, obj, { id: it.Id, modified: it.Modified, created: it.Created }); }
+    async function update(id, patch){ await fields(); await sp(listUrl + '/items(' + id + ')', 'POST', toBody(patch), { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); }
+    async function remove(id){ await sp(listUrl + '/items(' + id + ')', 'POST', null, { 'X-HTTP-Method': 'DELETE', 'IF-MATCH': '*' }); }
+    return { all, create, update, remove, missing: () => missing };
+  }
+  const orders = makeList(SP_CONFIG.ordersList, ORDER_FIELDS), lines = makeList(SP_CONFIG.linesList, LINE_FIELDS);
+
+  return {
+    mode: 'sp',
+    async signIn(){
+      await pca.initialize();
+      const r = await pca.handleRedirectPromise();
+      account = (r && r.account) || pca.getActiveAccount() || pca.getAllAccounts()[0] || null;
+      if (account) pca.setActiveAccount(account);
+      return account;
+    },
+    login: () => pca.loginRedirect({ scopes: SCOPES, prompt: 'select_account' }),
+    logout: () => pca.logoutRedirect({ account, postLogoutRedirectUri: location.origin + location.pathname }),
+    user: () => account && (account.name || account.username),
+    async load(){ const [o, l] = await Promise.all([orders.all(), lines.all()]); return { orders: o, lines: l, missing: orders.missing().concat(lines.missing()) }; },
+    orders, lines
+  };
+}
+
+/* Demo režimas – kol SP_CONFIG neužpildytas. Išgalvoti duomenys, saugomi tik atmintyje. */
+function makeDemoStore(){
+  let id = 100;
+  const O = [
+    { nr: 'I269001', tipas: 'Remontas', uzsakovas: 'Demo užsakovas UAB', vieta: 'Cechas A' },
+    { nr: 'I269002', tipas: 'Kitos paslaugos, Iremas', uzsakovas: 'Pavyzdys GmbH', vieta: 'Pavyzdys GmbH' },
+    { nr: 'I269003', tipas: 'Aptarnavimas', uzsakovas: 'Bandymų cechas', vieta: 'Bandymų cechas' }
+  ].map(o => Object.assign(o, { id: id++ }));
+  const L = [
+    { uzsNr: 'I269001', rmc: '9001', data: '2026-11-02', turinys: 'Siurblio veleno remontas', kiekis: 1, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', norma: 6.5, terminas: '2026-11-20', mat: '42CrMo4', dok: 'Reikia DOK', po: 'Normalus' },
+    { uzsNr: 'I269001', rmc: '9002', data: '2026-11-03', turinys: 'Tarpinės Ø 120 x Ø 80', kiekis: 10, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', terminas: '2026-11-10', dok: 'Nereikia DOK', po: 'Skubus' },
+    { uzsNr: 'I269002', rmc: '9003', data: '2026-10-20', turinys: 'FLANGE ADAPTER DN150; DEMO-1234-01', kiekis: 4, verte: 1250, vykdo: 'Vykdytojas C.', technologas: 'Technologas D.', norma: 12, faktas: 11.5, terminas: '2026-11-05', brez: 'DEMO-1234-01', mat: 'S355', atkr: '2026-11-04', dok: 'Reikia DOK', po: 'PO-0001' },
+    { uzsNr: 'I269003', rmc: '9004', data: '2026-11-10', turinys: 'Armatūros remontas', kiekis: 3, vykdo: 'Vykdytojas A.', terminas: '2026-12-01', po: 'Normalus' }
+  ].map(l => Object.assign({ atstovas: '', verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, kitasUzs: '', kitaVieta: '' }, l, { id: id++, modified: new Date().toISOString(), editor: 'Demo' }));
+  const list = arr => ({
+    create: async o => { const x = Object.assign({}, o, { id: id++, modified: new Date().toISOString(), editor: 'Demo' }); return x; },
+    update: async () => {}, remove: async () => {}
+  });
+  return { mode: 'demo', signIn: async () => ({ name: 'Demo' }), login(){}, logout(){ location.reload(); }, user: () => 'Demo režimas',
+    load: async () => ({ orders: O, lines: L, missing: [] }), orders: list(O), lines: list(L) };
+}
+
+const store = configured ? makeSpStore() : makeDemoStore();
+
+/* =====================================================================
+   BŪSENA IR VAIZDAS
+   ===================================================================== */
+const S = { orders: [], lines: [], sel: null, q: '', filt: 'all', open: null, limit: 150, busy: false };
+const VIEW_KEY = 'z17_view';
+
+function groups(){
+  // užsakymai + jų eilutės; eilutės be užsakymo įrašo sugrupuojamos pagal Užs. Nr.
+  const byNr = new Map();
+  S.orders.forEach(o => byNr.set(o.nr, { o, lines: [] }));
+  S.lines.forEach(l => {
+    const nr = l.uzsNr || NO_NR;
+    if (!byNr.has(nr)) byNr.set(nr, { o: { nr, tipas: '', uzsakovas: nr === NO_NR ? 'Eilutės be užsakymo numerio' : '', vieta: '', virtual: true }, lines: [] });
+    byNr.get(nr).lines.push(l);
+  });
+  const arr = [...byNr.values()];
+  arr.forEach(g => {
+    g.lines.sort((a, b) => (a.data || '').localeCompare(b.data || '') || String(a.rmc).localeCompare(String(b.rmc), 'lt', { numeric: true }));
+    g.last = g.lines.reduce((m, l) => (l.data || '') > m ? l.data : m, g.o.created ? localDate(g.o.created) : '');
+  });
+  return arr.sort((a, b) => (b.last || '').localeCompare(a.last || '') || String(b.o.nr).localeCompare(String(a.o.nr)));
+}
+let G = [];
+const group = nr => G.find(g => g.o.nr === nr);
+const isDone = l => !!l.atkr || isCancelled(l);
+const isCancelled = l => /anuliuot|atšaukt|panaikint/i.test(l.pastaba || '');
+const gDone = g => g.lines.length > 0 && g.lines.every(isDone);
+const tipClass = t => (t || '').startsWith('Remont') ? 't-rem' : (t || '').startsWith('Aptarn') ? 't-apt' : 't-kit';
+const tipName = t => (t || '').startsWith('Kitos') ? 'Kitos paslaugos' : t;
+function status(l){
+  if (isCancelled(l)) return ['Anuliuota', 'var(--muted)'];
+  if (l.atkr) return ['Atkrauta', 'var(--ok)'];
+  if (l.terminas && l.terminas < TODAY) return ['Vėluoja', 'var(--bad)'];
+  return ['Vykdoma', 'var(--ink2)'];
+}
+function nextRmc(){ return Math.max(0, ...S.lines.map(l => parseInt(l.rmc) || 0)) + 1; }
+function nextNr(){
+  const yy = String(new Date().getFullYear()).slice(2), rx = new RegExp('^I' + yy + '(\\d{4})$');
+  return 'I' + yy + String(Math.max(0, ...G.map(g => { const m = String(g.o.nr).match(rx); return m ? +m[1] : 0; })) + 1).padStart(4, '0');
+}
+function mk(s){ s = esc(s); const q = S.q.trim(); if (!q) return s; q.split(/\s+/).filter(w => w.length > 1).forEach(w => { s = s.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'), '<mark>$1</mark>'); }); return s; }
+function uniq(field){ return [...new Set(S.lines.map(l => l[field]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'lt')); }
+
+/* ---------- kairė: užsakymų sąrašas ---------- */
+function matches(g){
+  const q = S.q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!q.length) return true;
+  const hay = [g.o.nr, g.o.uzsakovas, g.o.vieta, ...g.lines.flatMap(l => [l.rmc, l.turinys, l.brez, l.mat, l.vykdo, l.technologas, l.po, l.kitasUzs])].join(' ').toLowerCase();
+  return q.every(w => hay.includes(w));
+}
+function renderList(){
+  const cnt = { all: G.length, open: G.filter(g => !gDone(g)).length, done: G.filter(gDone).length };
+  $('flt').innerHTML = [['all','Visi'],['open','Vykdomi'],['done','Užbaigti']].map(([k, n]) => `<b class="${S.filt === k ? 'on' : ''}" data-act="filt" data-f="${k}">${n}<span>${cnt[k]}</span></b>`).join('');
+  const list = G.filter(g => (S.filt === 'all' || (S.filt === 'done') === gDone(g)) && matches(g));
+  const shown = list.slice(0, S.limit);
+  $('olist').innerHTML = shown.map(g => `
+    <div class="oitem ${g.o.nr === S.sel ? 'sel' : ''}" data-act="selo" data-nr="${esc(g.o.nr)}">
+      <span class="nr">${mk(g.o.nr)}</span><span class="n">${g.lines.length} eil.</span>
+      <span class="cl">${mk(g.o.uzsakovas || '—')}${g.o.vieta && g.o.vieta !== g.o.uzsakovas ? ' · ' + esc(g.o.vieta) : ''}</span>
+    </div>`).join('') + (list.length > shown.length ? `<div class="more"><a href="#" data-act="moreList">Rodyti daugiau (${list.length - shown.length})</a></div>` : '')
+    || '<div class="empty">Nieko nerasta</div>';
+}
+
+/* ---------- dešinė: užsakymas ir eilutės ---------- */
+function renderMain(){
+  const g = group(S.sel), m = $('main');
+  if (!g){ m.innerHTML = '<div class="empty">Pasirinkite užsakymą kairėje arba sukurkite naują.</div>'; return; }
+  const o = g.o, ls = g.lines;
+  const sumN = ls.reduce((s, l) => s + (+l.norma || 0), 0), sumV = ls.reduce((s, l) => s + (+l.verte || 0), 0);
+  m.innerHTML = `
+  <div class="card ohead">
+    <div class="title"><h2>${esc(o.nr)}</h2>${o.tipas ? `<span class="tag ${tipClass(o.tipas)}">${esc(tipName(o.tipas))}</span>` : ''}<span class="sp"></span>
+      ${o.virtual ? (o.nr !== NO_NR ? `<button data-act="createMissing">Sukurti užsakymo įrašą</button>` : '') : `<button data-act="editOrder">Redaguoti užsakymą</button>`}</div>
+    ${o.virtual && o.nr !== NO_NR ? `<div class="warn full" style="flex-basis:100%;margin:0 0 4px">Eilutės nurodo šį Užs. Nr., bet sąraše „${esc(SP_CONFIG.ordersList)}“ tokio užsakymo nėra.</div>` : ''}
+    <div class="f"><label>Užsakovas</label><div>${esc(o.uzsakovas || '—')}</div></div>
+    <div class="f"><label>Objekto vieta</label><div>${esc(o.vieta || '—')}</div></div>
+    <div class="f"><label>Eilutės</label><div class="mono">${ls.length}</div></div>
+    <div class="f"><label>Norma iš viso</label><div class="mono">${num(sumN)} val.</div></div>
+    <div class="f"><label>Sąmatinė vertė</label><div class="mono">${num(sumV)} €</div></div>
+  </div>
+  <div class="toolbar"><h3>RMC eilutės</h3>${o.nr !== NO_NR ? '<button class="primary" data-act="addLine">+ Nauja eilutė</button>' : ''}</div>
+  <div class="card" style="overflow-x:auto">
+    ${ls.length ? `<table>
+      <thead><tr><th>RMC Nr.</th><th>Reg. data</th><th>Užsakymo turinys</th><th class="num">Kiekis</th><th class="hide-sm">Atstovas</th><th class="hide-sm">Vykdo</th><th class="hide-sm">Technologas</th><th class="num">Norma</th><th>Terminas</th><th>Būsena</th><th></th></tr></thead>
+      <tbody>${ls.map(l => { const [s, c] = status(l); return `
+        <tr class="ln ${S.open === l.id ? 'sel' : ''}" data-act="openLine" data-id="${l.id}">
+          <td class="nw"><b>${mk(l.rmc || '—')}</b></td>
+          <td class="mono nw">${fmt(l.data)}</td>
+          <td style="min-width:230px">${mk(l.turinys) || '<i class="muted">neįvesta</i>'}
+            ${l.kitasUzs || l.kitaVieta ? `<div class="sub2">${esc([l.kitasUzs, l.kitaVieta].filter(Boolean).join(' · '))}</div>` : ''}
+            ${l.brez || l.mat ? `<div class="codes">${l.brez ? `<span class="code" title="Brėžinys">${mk(l.brez)}</span>` : ''}${l.mat ? `<span class="code mat" title="Medžiaga">${mk(l.mat)}</span>` : ''}</div>` : ''}</td>
+          <td class="num">${esc(l.kiekis ?? '')}</td>
+          <td class="hide-sm">${esc(l.atstovas || '—')}</td>
+          <td class="hide-sm nw">${esc(l.vykdo || '—')}</td>
+          <td class="hide-sm nw">${esc(l.technologas || '—')}</td>
+          <td class="num">${num(l.norma)}</td>
+          <td class="mono nw">${fmt(l.terminas)}</td>
+          <td><span class="st" style="color:${c}">${s}</span></td>
+          <td><button class="sm" data-act="lmenu" data-id="${l.id}" title="Veiksmai">⋯</button></td>
+        </tr>`; }).join('')}</tbody></table>`
+    : `<div class="empty">Šis užsakymas dar neturi eilučių.<br><br><button class="primary" data-act="addLine">+ Pridėti pirmą eilutę</button></div>`}
+  </div>`;
+}
+function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderList(); renderMain(); }
+
+/* ---------- eilutės forma ---------- */
+let draft = null;   // { ...eilutė, _isNew, _orig }
+function fld(k, label, type = 'text', list){
+  const v = draft[k] ?? '';
+  const dl = list ? `<datalist id="dl_${k}">${list.map(x => `<option value="${esc(x)}">`).join('')}</datalist>` : '';
+  return `<div><label class="l">${label}</label><input type="${type}" data-f="${k}" value="${esc(v)}" ${type === 'number' ? 'step="any"' : ''} ${list ? `list="dl_${k}"` : ''}>${dl}</div>`;
+}
+function openLine(line, isNew){
+  const g = group(line.uzsNr || NO_NR); if (!g) return;
+  draft = Object.assign({}, line, { _isNew: !!isNew });
+  S.open = isNew ? null : line.id;
+  const idx = isNew ? -1 : g.lines.findIndex(x => x.id === line.id);
+  const d = $('drawer');
+  d.innerHTML = `
+    <div class="dh">
+      ${isNew ? '' : `<button class="sm" data-act="stepL" data-d="-1" ${idx <= 0 ? 'disabled' : ''}>‹</button><button class="sm" data-act="stepL" data-d="1" ${idx >= g.lines.length - 1 ? 'disabled' : ''}>›</button>`}
+      <h3>${isNew ? 'Nauja eilutė' : 'RMC ' + esc(line.rmc)} <span class="muted" style="font-weight:400;font-size:13px">· ${esc(g.o.nr)}</span></h3>
+      <button class="sm" data-act="closeD">✕</button></div>
+    <div class="db">
+      ${isNew ? `<div class="warn">${line._copy ? 'Eilutės kopija – patikrinkite turinį ir išsaugokite.' : 'Atstovas, PO Nr., dokumentacija, vykdytojas, technologas ir terminas perimti iš paskutinės eilutės.'}</div>` : ''}
+      <div class="grp"><h4>Registravimas</h4><div class="grid">
+        <div class="full"><label class="l req">Užsakymo turinys</label><textarea rows="2" data-f="turinys">${esc(draft.turinys)}</textarea></div>
+        ${fld('data', 'Registravimo data', 'date')}
+        ${fld('rmc', 'RMC užs. Nr.')}
+        ${fld('kiekis', 'Kiekis', 'number')}
+        ${fld('verte', 'Sąmatinė vertė, be PVM €', 'number')}
+        ${fld('atstovas', 'Užsakovo atstovas', 'text', uniq('atstovas'))}
+        ${fld('terminas', 'Užsakymo terminas', 'date')}
+        ${fld('po', 'Prioritetas / PO Nr.', 'text', ['Normalus', 'Skubus', 'Avarinis'])}
+        ${fld('dok', 'Dokumentacija', 'text', ['Reikia DOK', 'Nereikia DOK'])}
+        ${fld('brez', 'Brėžinio Nr.')}
+        ${fld('mat', 'Medžiaga / splavas', 'text', uniq('mat'))}
+        <div><label class="l">Užsakovas</label><input value="${esc(g.o.uzsakovas || '')}" disabled><span class="inh">↳ iš užsakymo</span></div>
+        <div><label class="l">Objekto vieta</label><input value="${esc(g.o.vieta || '')}" disabled><span class="inh">↳ iš užsakymo</span></div>
+        ${fld('kitasUzs', 'Kitas užsakovas (jei skiriasi)', 'text', uniq('kitasUzs'))}
+        ${fld('kitaVieta', 'Kita objekto vieta (jei skiriasi)', 'text', uniq('kitaVieta'))}
+      </div></div>
+      <div class="grp"><h4>Vykdymas</h4><div class="grid">
+        ${fld('vykdo', 'Užsakymą vykdo', 'text', uniq('vykdo'))}
+        ${fld('technologas', 'Technologas', 'text', uniq('technologas'))}
+        ${fld('norma', 'Norma, val.', 'number')}
+        ${fld('faktas', 'Faktiškai išdirbta, val.', 'number')}
+        <div class="full"><label class="l">Pastaba</label><input data-f="pastaba" value="${esc(draft.pastaba || '')}"></div>
+      </div></div>
+      <div class="grp"><h4>Atkrovimas</h4><div class="grid">${fld('atkr', 'Atkrovimo data', 'date')}</div></div>
+      ${isNew ? '' : `<div class="meta">Sukurta: ${esc(fmtFull(localDate(line.created)))}${line.author ? ' · ' + esc(line.author) : ''}<br>Pakeista: ${esc(line.modified ? new Date(line.modified).toLocaleString('lt-LT') : '—')}${line.editor ? ' · ' + esc(line.editor) : ''}</div>`}
+    </div>
+    <div class="df">
+      ${isNew ? '' : `<button class="danger" data-act="delLine" data-id="${line.id}">Ištrinti</button><button data-act="copyLine" data-id="${line.id}">Kopijuoti</button>`}
+      <span class="sp"></span>
+      <button data-act="closeD">Atšaukti</button><button class="primary" data-act="saveD" id="saveBtn">Išsaugoti</button>
+    </div>`;
+  d.classList.add('open');
+  d.querySelectorAll('[data-f]').forEach(el => el.oninput = () => { draft[el.dataset.f] = el.type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value; });
+  renderMain();
+  if (isNew) setTimeout(() => d.querySelector('textarea')?.focus(), 220);
+}
+function closeDrawer(){ $('drawer').classList.remove('open'); draft = null; S.open = null; renderMain(); }
+function dirty(){
+  if (!draft) return false; if (draft._isNew) return true;
+  const l = S.lines.find(x => x.id === draft.id); if (!l) return false;
+  return LINE_FIELDS.some(([k]) => String(l[k] ?? '') !== String(draft[k] ?? ''));
+}
+function closeAsk(){ if (dirty() && !confirm('Yra neišsaugotų pakeitimų. Uždaryti neišsaugojus?')) return false; closeDrawer(); return true; }
+async function saveLine(){
+  if (S.busy) return;
+  if (!String(draft.turinys || '').trim()){ toast('Įveskite užsakymo turinį', true); return; }
+  const btn = $('saveBtn'); S.busy = true; btn.disabled = true; btn.textContent = 'Saugoma…';
+  try {
+    const fields = Object.fromEntries(LINE_FIELDS.map(([k]) => [k, draft[k] ?? null]));
+    if (draft._isNew){
+      const created = await store.lines.create(fields);
+      S.lines.push(Object.assign(created, { editor: store.user(), author: store.user(), created: created.created || new Date().toISOString() }));
+      toast('Eilutė sukurta · RMC ' + created.rmc);
+    } else {
+      const l = S.lines.find(x => x.id === draft.id);
+      const patch = {}; LINE_FIELDS.forEach(([k]) => { if (String(l[k] ?? '') !== String(fields[k] ?? '')) patch[k] = fields[k]; });
+      if (Object.keys(patch).length){ await store.lines.update(l.id, patch); Object.assign(l, patch, { modified: new Date().toISOString(), editor: store.user() }); }
+      toast(Object.keys(patch).length ? 'Išsaugota · RMC ' + l.rmc : 'Pakeitimų nebuvo');
+    }
+    S.sel = draft.uzsNr || NO_NR; closeDrawer(); render();
+  } catch (e){ console.error(e); toast('Nepavyko išsaugoti: ' + e.message, true); btn.disabled = false; btn.textContent = 'Išsaugoti'; }
+  finally { S.busy = false; }
+}
+function newLine(g, src, copy){
+  src = src || g.lines[g.lines.length - 1] || {};
+  const carry = ['atstovas', 'terminas', 'vykdo', 'technologas', 'po', 'dok', 'kitasUzs', 'kitaVieta'];
+  const n = { uzsNr: g.o.nr, rmc: String(nextRmc()), data: TODAY, turinys: '', kiekis: null, verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, _copy: !!copy };
+  carry.forEach(k => n[k] = src[k] || (k === 'terminas' ? null : ''));
+  if (copy) ['turinys', 'kiekis', 'verte', 'brez', 'mat', 'norma'].forEach(k => n[k] = src[k]);
+  return n;
+}
+
+/* ---------- užsakymo forma ---------- */
+function modal(title, body, foot){ $('modal').innerHTML = `<div class="mh"><h3>${title}</h3><button class="sm" data-act="closeM">✕</button></div><div class="mb">${body}</div><div class="mf">${foot}</div>`; $('scrim').classList.add('open'); }
+function closeModal(){ $('scrim').classList.remove('open'); }
+function orderForm(o, fixedNr){
+  const v = o || { tipas: 'Remontas', uzsakovas: '', vieta: '' };
+  const uz = [...new Set(S.orders.map(x => x.uzsakovas).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'lt'));
+  const vt = [...new Set(S.orders.map(x => x.vieta).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'lt'));
+  return `<div class="grid">
+    <div><label class="l req">Užs. Nr.</label><input id="m_nr" value="${esc(o ? o.nr : (fixedNr || nextNr()))}" ${o || fixedNr ? 'disabled' : ''}>${o || fixedNr ? '' : '<span class="inh">↳ pasiūlytas kitas numeris</span>'}</div>
+    <div><label class="l req">Projektas</label><select id="m_tipas">${TIPAI.map(t => `<option ${v.tipas === t ? 'selected' : ''}>${t}</option>`).join('')}${v.tipas && !TIPAI.includes(v.tipas) ? `<option selected>${esc(v.tipas)}</option>` : ''}</select></div>
+    <div class="full"><label class="l req">Užsakovas</label><input id="m_uzs" list="dl_uzs" value="${esc(v.uzsakovas)}" placeholder="Pradėkite rašyti…"><datalist id="dl_uzs">${uz.map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+    <div class="full"><label class="l">Objekto vieta</label><input id="m_vieta" list="dl_v" value="${esc(v.vieta || '')}"><datalist id="dl_v">${vt.map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+    ${o ? '' : `<label class="full" style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="m_line" checked style="width:auto">Iš karto pridėti pirmą RMC eilutę</label>`}
+  </div>`;
+}
+const readOrder = () => ({ nr: $('m_nr').value.trim(), tipas: $('m_tipas').value, uzsakovas: $('m_uzs').value.trim(), vieta: $('m_vieta').value.trim() });
+async function busy(btn, fn){
+  if (S.busy) return; S.busy = true; const t = btn.textContent; btn.disabled = true; btn.textContent = 'Saugoma…';
+  try { await fn(); } catch (e){ console.error(e); toast('Nepavyko: ' + e.message, true); } finally { S.busy = false; btn.disabled = false; btn.textContent = t; }
+}
+
+/* ---------- meniu ---------- */
+function showMenu(x, y, items){
+  closeMenu(); const m = document.createElement('div'); m.className = 'menu'; m.id = 'menu';
+  m.innerHTML = items.map(i => i === '-' ? '<hr>' : `<div data-act="${i[1]}" data-id="${i[2]}" ${i[3] ? 'style="color:var(--bad)"' : ''}>${i[0]}</div>`).join('');
+  document.body.appendChild(m); const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
+}
+function closeMenu(){ $('menu')?.remove(); }
+
+/* ---------- įvykiai ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!e.target.closest('#menu')) closeMenu();
+  if (!t) return;
+  const a = t.dataset.act, g = group(S.sel), id = +t.dataset.id, line = S.lines.find(x => x.id === id);
+  switch (a){
+    case 'filt': S.filt = t.dataset.f; S.limit = 150; renderList(); break;
+    case 'moreList': e.preventDefault(); S.limit += 300; renderList(); break;
+    case 'selo': if (draft && !closeAsk()) return; S.sel = t.dataset.nr; try { localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderList(); renderMain(); break;
+    case 'openLine': if (e.target.closest('button')) return; if (draft && !closeAsk()) return; openLine(line); break;
+    case 'lmenu': { e.stopPropagation(); const r = t.getBoundingClientRect();
+      showMenu(r.left - 160, r.bottom + 4, [['Redaguoti', 'm_open', id], ['Kopijuoti eilutę', 'copyLine', id], '-', ['Ištrinti', 'delLine', id, true]]); break; }
+    case 'm_open': if (draft && !closeAsk()) return; openLine(line); break;
+    case 'addLine': if (draft && !closeAsk()) return; openLine(newLine(g, null, false), true); break;
+    case 'copyLine': if (draft && draft.id !== id && !closeAsk()) return; openLine(newLine(group(line.uzsNr || NO_NR), line, true), true); break;
+    case 'delLine':
+      closeMenu();
+      modal('Ištrinti eilutę?', `<p>RMC <b class="mono">${esc(line.rmc)}</b> – ${esc(line.turinys)}</p><p class="muted" style="font-size:13px">Ištrinta eilutė dar 93 dienas lieka SharePoint svetainės šiukšlinėje.</p>`,
+        `<button data-act="closeM">Atšaukti</button><button class="primary" style="background:var(--bad);border-color:var(--bad)" data-act="doDel" data-id="${id}">Ištrinti</button>`); break;
+    case 'doDel': busy(t, async () => { await store.lines.remove(id); S.lines = S.lines.filter(x => x.id !== id); closeModal(); if (draft && draft.id === id) closeDrawer(); render(); toast('RMC ' + line.rmc + ' ištrinta'); }); break;
+    case 'saveD': saveLine(); break;
+    case 'closeD': closeAsk(); break;
+    case 'newOrder': if (draft && !closeAsk()) return; modal('Naujas užsakymas', orderForm(null), `<button data-act="closeM">Atšaukti</button><button class="primary" data-act="createOrder">Sukurti</button>`); setTimeout(() => $('m_uzs').focus(), 50); break;
+    case 'createMissing': modal('Sukurti užsakymą ' + esc(g.o.nr), orderForm(null, g.o.nr), `<button data-act="closeM">Atšaukti</button><button class="primary" data-act="createOrder">Sukurti</button>`); break;
+    case 'createOrder': { const v = readOrder(); const withLine = $('m_line')?.checked;
+      if (!v.nr || !v.uzsakovas){ toast('Užpildykite Užs. Nr. ir užsakovą', true); break; }
+      if (S.orders.some(o => o.nr.toLowerCase() === v.nr.toLowerCase())){ toast('Užsakymas ' + v.nr + ' jau yra', true); break; }
+      busy(t, async () => { const created = await store.orders.create(v); S.orders.push(Object.assign(created, { created: new Date().toISOString() }));
+        S.sel = v.nr; S.q = ''; $('q').value = ''; S.filt = 'all'; closeModal(); render(); toast('Sukurtas užsakymas ' + v.nr);
+        if (withLine && !group(v.nr).lines.length) openLine(newLine(group(v.nr), {}, false), true); }); break; }
+    case 'editOrder': modal('Redaguoti ' + esc(g.o.nr), orderForm(g.o), `<button data-act="closeM">Atšaukti</button><button class="primary" data-act="saveOrder">Išsaugoti</button>`); break;
+    case 'saveOrder': { const v = readOrder(); if (!v.uzsakovas){ toast('Nurodykite užsakovą', true); break; }
+      const patch = {}; ['tipas', 'uzsakovas', 'vieta'].forEach(k => { if ((g.o[k] || '') !== v[k]) patch[k] = v[k]; });
+      if (!Object.keys(patch).length){ closeModal(); break; }
+      busy(t, async () => { await store.orders.update(g.o.id, patch); Object.assign(g.o, patch); closeModal(); render(); toast(g.o.nr + ' atnaujintas'); }); break; }
+    case 'closeM': closeModal(); break;
+  }
+});
+// ‹ › tarp eilučių
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act="stepL"]'); if (!t) return;
+  e.stopPropagation();
+  if (!draft || draft._isNew) return;
+  if (dirty() && !confirm('Yra neišsaugotų pakeitimų. Pereiti neišsaugojus?')) return;
+  const g = group(draft.uzsNr || NO_NR); const i = g.lines.findIndex(x => x.id === draft.id) + (+t.dataset.d);
+  if (g.lines[i]) openLine(g.lines[i]);
+}, true);
+let qTimer;
+$('q').oninput = e => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value; S.limit = 150; renderList(); renderMain(); }, 150); };
+$('scrim').onclick = e => { if (e.target.id === 'scrim') closeModal(); };
+$('reload').onclick = () => { if (draft && !closeAsk()) return; loadData(); };
+$('logout').onclick = () => store.logout();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ if ($('scrim').classList.contains('open')) closeModal(); else if (draft) closeAsk(); }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && draft) saveLine();
+});
+window.addEventListener('beforeunload', e => { if (dirty()){ e.preventDefault(); e.returnValue = ''; } });
+
+/* =====================================================================
+   PALEIDIMAS
+   ===================================================================== */
+function gate(title, text, btnText, onClick){
+  $('gate').innerHTML = `<div class="gate"><div class="card"><h2>${esc(title)}</h2><p>${esc(text)}</p>${btnText ? `<button class="primary" id="gateBtn">${esc(btnText)}</button>` : ''}</div></div>`;
+  if (btnText) $('gateBtn').onclick = onClick;
+}
+async function loadData(){
+  $('main').innerHTML = '<div class="loading">Įkeliami duomenys iš SharePoint…</div>';
+  try {
+    const r = await store.load();
+    S.orders = r.orders; S.lines = r.lines;
+    if (r.missing.length){ $('banner').hidden = false; document.body.classList.add('has-banner'); $('banner').innerHTML = '<b>Sąraše nerasti stulpeliai:</b> ' + esc(r.missing.join(', ')) + '. Patikrinkite stulpelių pavadinimus (žr. README).'; }
+    $('sub').textContent = (store.mode === 'sp' ? SP_CONFIG.siteUrl.replace(/^https:\/\//, '') : 'demo') + ' · ' + S.orders.length + ' užs. · ' + S.lines.length + ' eil.';
+    try { const v = localStorage.getItem(VIEW_KEY); if (v) S.sel = v; } catch (_) {}
+    render();
+  } catch (e){
+    console.error(e);
+    $('main').innerHTML = `<div class="empty"><b>Nepavyko įkelti duomenų.</b><br>${esc(e.message)}<br><br><button data-act="none" onclick="loadData()">Bandyti dar kartą</button></div>`;
+  }
+}
+(async function start(){
+  gate('Jungiamasi…', 'Tikrinamas prisijungimas.');
+  let acc;
+  try { acc = await store.signIn(); }
+  catch (e){ console.error(e); gate('Prisijungti nepavyko', String(e.message || e), 'Bandyti dar kartą', () => location.reload()); return; }
+  if (!acc){ gate('Ž-17 RMC užsakymai', 'Prisijunkite su Iremas Microsoft paskyra.', 'Prisijungti', () => store.login()); return; }
+  $('gate').innerHTML = '';
+  document.body.classList.remove('locked'); document.title = document.body.dataset.title;
+  $('who').textContent = store.user(); $('logout').hidden = store.mode !== 'sp';
+  if (store.mode === 'demo'){ $('banner').hidden = false; document.body.classList.add('has-banner'); $('banner').innerHTML = '<b>Demo režimas.</b> SP_CONFIG dar neužpildytas (index.html viršuje) – rodomi išgalvoti duomenys, niekas neišsaugoma.'; }
+  loadData();
+})();
+</script>
+</body>
+</html>
