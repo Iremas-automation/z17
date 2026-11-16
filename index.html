@@ -82,6 +82,41 @@ td b{font-family:var(--mono);font-weight:600}
 .st::before{content:"";width:8px;height:8px;border-radius:2px;background:currentColor}
 .empty{padding:36px;text-align:center;color:var(--muted)}
 mark{background:#f2d59a;color:inherit;border-radius:2px}
+/* rodiniai, suvestinė, QA, komentarai */
+.vtabs{display:flex;gap:2px;background:var(--bg);padding:3px;border-radius:9px;margin-left:10px}
+.vtabs b{font-weight:500;font-size:13px;padding:4px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.vtabs b.on{background:var(--panel);box-shadow:0 1px 3px rgba(45,40,30,.18);font-weight:600}
+.pagehead{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.pagehead h2{margin:0;font-size:18px}
+.pagehead .muted{font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0;margin-bottom:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.kpi{padding:10px 14px;border-right:1px solid var(--line)}
+.kpi .v{font-size:22px;font-weight:600;font-family:var(--mono);letter-spacing:-.03em;white-space:nowrap}
+.kpi .v.bad{color:var(--bad)}
+.kpi .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-family:var(--mono)}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,760px),1fr));gap:16px}
+.stbl td.ell{max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pagehead .seg b,.seg b{white-space:nowrap}
+.sbox{overflow:hidden}
+.sh{display:flex;align-items:baseline;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.sh h4{margin:0;font-size:13px}
+.sh .muted{font-size:11.5px}
+.stbl td{font-size:12.5px;padding:6px 10px}
+.stbl tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--field) 55%,transparent)}
+.rchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+.rchip{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:2px 10px;font-size:12px;cursor:pointer}
+.rchip:hover{border-color:var(--accent)}
+.rchip b{font-family:var(--mono);color:var(--accent);margin-left:4px}
+.cbox{padding:10px 14px}
+.grp .cbox{padding:0}
+.cmt{border-left:3px solid var(--ink2);padding:3px 10px;margin-bottom:8px}
+.cmt .ch{display:flex;gap:8px;align-items:baseline;font-size:12px}
+.cmt .ch span{color:var(--muted);font-family:var(--mono);font-size:11px}
+.cmt .ch a{margin-left:auto;font-size:11px;color:var(--muted)}
+.cmt .ct{font-size:13px;white-space:pre-wrap}
+.cnew{display:flex;gap:8px;align-items:flex-end}
+.cnew textarea{min-height:38px}
+@media (max-width:900px){.sgrid{grid-template-columns:1fr}.vtabs{margin-left:0}}
 /* filtrai */
 .fbox{border:1px solid var(--line);border-radius:var(--r);background:var(--field)}
 .fhead{display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;font-size:13px;user-select:none}
@@ -148,6 +183,7 @@ body.locked header,body.locked .app,body.locked .banner{display:none}
 <div class="banner" id="banner" hidden></div>
 <header>
   <div><h1><span>Ž-17</span>RMC užsakymų registras</h1><div class="sub" id="sub">SharePoint</div></div>
+  <nav class="vtabs" id="tabs"></nav>
   <div class="sp"></div>
   <button id="reload" title="Iš naujo įkelti duomenis iš SharePoint">Atnaujinti</button>
   <span class="who" id="who"></span>
@@ -185,7 +221,8 @@ const SP_CONFIG = {
   clientId: '9c41bac4-f17a-47cf-8347-d30093ee22cb',                                   // App registration → Application (client) ID
   siteUrl:  'https://achemosgrupelt.sharepoint.com/sites/Iremas2',   // SharePoint svetainė, kurioje sukurti sąrašai
   ordersList: 'Z17_Uzsakymai',
-  linesList:  'Z17_RMC_eilutes'
+  linesList:  'Z17_RMC_eilutes',
+  commentsList: 'Z17_Komentarai'
 };
 /* ===================================================================== */
 
@@ -208,7 +245,6 @@ const LINE_FIELDS = [
   ['verte',       'Verte',          'Sąmatinė vertė',        'num'],
   ['po',          'PoNr',           'Prioritetas ir PO Nr.', 'text'],
   ['terminas',    'Terminas',       'Užsakymo terminas',     'date'],
-  ['dok',         'Dokumentacija',  'Dokumentacija',         'text'],
   ['vykdo',       'Vykdo',          'Vykdo',                 'text'],
   ['technologas', 'Technologas',    'Technologas',           'text'],
   ['norma',       'Norma',          'Norma (val.)',          'num'],
@@ -217,10 +253,24 @@ const LINE_FIELDS = [
   ['mat',         'Medziaga',       'Medžiaga',              'text'],
   ['pastaba',     'Pastaba',        'Pastaba',               'text'],
   ['atkr',        'AtkrData',       'Atkrovimo data',        'date'],
+  ['faktAtkr',    'FaktAtkr',       'Faktinis atkrovimas',   'date'],
+  ['techPast',    'TechPastabos',   'Technologo pastabos',   'text'],
+  ['td',          'ReikiaTD',       'Ar reikia TD',          'text'],
+  ['tdReng',      'TDRengejas',     'TD rengėjas',           'text'],
+  ['tdStart',     'TDPradeta',      'TD pradėta',            'date'],
+  ['tdEnd',       'TDBaigta',       'TD baigta',             'date'],
+  ['tdPast',      'TDPastabos',     'TD pastabos',           'text'],
   ['kitasUzs',    'KitasUzsakovas', 'Kitas užsakovas',       'text'],
   ['kitaVieta',   'KitaVieta',      'Kita objekto vieta',    'text']
 ];
+// Komentarai – atskiras sąrašas: Title = Užs. Nr., „Eilutės ID“ (skaičius, tuščias – komentaras užsakymui), „Komentaras“ (kelios eilutės)
+const COMMENT_FIELDS = [
+  ['nr',     'Title',      'Užs. Nr.',    'text'],
+  ['lineId', 'EilutesId',  'Eilutės ID',  'num'],
+  ['text',   'Komentaras', 'Komentaras',  'text']
+];
 const TIPAI = ['Remontas', 'Aptarnavimas', 'Kitos paslaugos, Iremas'];
+const TD_OPT = ['Reikia', 'Nereikia', 'Tikslinti'];
 const NO_NR = '(be Užs. Nr.)';
 
 /* ---------- pagalbinės ---------- */
@@ -335,7 +385,8 @@ function makeSpStore(){
     async function remove(id){ await sp(listUrl + '/items(' + id + ')', 'POST', null, { 'X-HTTP-Method': 'DELETE', 'IF-MATCH': '*' }); }
     return { all, create, update, remove, missing: () => missing };
   }
-  const orders = makeList(SP_CONFIG.ordersList, ORDER_FIELDS), lines = makeList(SP_CONFIG.linesList, LINE_FIELDS);
+  const orders = makeList(SP_CONFIG.ordersList, ORDER_FIELDS), lines = makeList(SP_CONFIG.linesList, LINE_FIELDS),
+        comments = makeList(SP_CONFIG.commentsList, COMMENT_FIELDS);
 
   return {
     mode: 'sp',
@@ -351,8 +402,12 @@ function makeSpStore(){
     login: () => pca.loginRedirect({ scopes: SCOPES }),
     logout: () => pca.logoutRedirect({ account, postLogoutRedirectUri: location.origin + location.pathname }),
     user: () => account && (account.name || account.username),
-    async load(){ const [o, l] = await Promise.all([orders.all(), lines.all()]); return { orders: o, lines: l, missing: orders.missing().concat(lines.missing()) }; },
-    orders, lines
+    async load(){
+      const [o, l, c] = await Promise.all([orders.all(), lines.all(),
+        comments.all().catch(e => { console.warn('Komentarų sąrašas nepasiekiamas:', e.message); return null; })]);
+      return { orders: o, lines: l, comments: c, missing: orders.missing().concat(lines.missing(), c ? comments.missing() : []) };
+    },
+    orders, lines, comments
   };
 }
 
@@ -365,17 +420,18 @@ function makeDemoStore(){
     { nr: 'I269003', tipas: 'Aptarnavimas', uzsakovas: 'Bandymų cechas', vieta: 'Bandymų cechas' }
   ].map(o => Object.assign(o, { id: id++ }));
   const L = [
-    { uzsNr: 'I269001', rmc: '9001', data: '2026-11-02', turinys: 'Siurblio veleno remontas', kiekis: 1, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', norma: 6.5, terminas: '2026-11-20', mat: '42CrMo4', dok: 'Reikia DOK', po: 'Normalus' },
-    { uzsNr: 'I269001', rmc: '9002', data: '2026-11-03', turinys: 'Tarpinės Ø 120 x Ø 80', kiekis: 10, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', terminas: '2026-11-10', dok: 'Nereikia DOK', po: 'Skubus' },
-    { uzsNr: 'I269002', rmc: '9003', data: '2026-10-20', turinys: 'FLANGE ADAPTER DN150; DEMO-1234-01', kiekis: 4, verte: 1250, vykdo: 'Vykdytojas C.', technologas: 'Technologas D.', norma: 12, faktas: 11.5, terminas: '2026-11-05', brez: 'DEMO-1234-01', mat: 'S355', atkr: '2026-11-04', dok: 'Reikia DOK', po: 'PO-0001' },
-    { uzsNr: 'I269003', rmc: '9004', data: '2026-11-10', turinys: 'Armatūros remontas', kiekis: 3, vykdo: 'Vykdytojas A.', terminas: '2026-12-01', po: 'Normalus' }
-  ].map(l => Object.assign({ atstovas: '', verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, kitasUzs: '', kitaVieta: '' }, l, { id: id++, modified: new Date().toISOString(), editor: 'Demo' }));
+    { uzsNr: 'I269001', rmc: '9001', data: '2026-11-02', turinys: 'Siurblio veleno remontas', kiekis: 1, verte: 3400, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', norma: 6.5, faktas: 9, terminas: '2026-11-20', mat: '42CrMo4', po: 'Normalus', td: 'Reikia', tdReng: 'Rengėja X.', tdStart: '2026-11-10' },
+    { uzsNr: 'I269001', rmc: '9002', data: '2026-11-03', turinys: 'Tarpinės Ø 120 x Ø 80', kiekis: 10, verte: 420, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', norma: 2, terminas: '2026-11-10', po: 'Skubus', td: 'Nereikia' },
+    { uzsNr: 'I269002', rmc: '9003', data: '2026-10-20', turinys: 'FLANGE ADAPTER DN150; DEMO-1234-01', kiekis: 4, verte: 1250, vykdo: 'Vykdytojas C.', technologas: 'Technologas D.', norma: 12, faktas: 11.5, terminas: '2026-11-05', brez: 'DEMO-1234-01', mat: 'S355', atkr: '2026-11-04', po: 'PO-0001', td: 'Reikia', tdReng: 'Rengėja Y.', tdStart: '2026-10-28', tdEnd: '2026-11-03' },
+    { uzsNr: 'I269003', rmc: '9004', data: '2026-11-10', turinys: 'Armatūros remontas', kiekis: 3, verte: 900, vykdo: 'Vykdytojas C.', technologas: 'Technologas B.', norma: 5, terminas: '2026-12-01', po: 'Normalus', td: 'Tikslinti' }
+  ].map(l => Object.assign({ atstovas: '', verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, faktAtkr: null, techPast: '', td: '', tdReng: '', tdStart: null, tdEnd: null, tdPast: '', kitasUzs: '', kitaVieta: '' }, l, { id: id++, modified: new Date().toISOString(), editor: 'Demo' }));
+  const C = [{ id: id++, nr: 'I269001', lineId: null, text: 'Užsakovas patvirtino terminą telefonu.', author: 'Demo', created: new Date().toISOString() }];
   const list = arr => ({
-    create: async o => { const x = Object.assign({}, o, { id: id++, modified: new Date().toISOString(), editor: 'Demo' }); return x; },
+    create: async o => { const x = Object.assign({}, o, { id: id++, modified: new Date().toISOString(), created: new Date().toISOString(), editor: 'Demo', author: 'Demo' }); return x; },
     update: async () => {}, remove: async () => {}
   });
-  return { mode: 'demo', signIn: async () => ({ name: 'Demo' }), login(){}, logout(){ location.reload(); }, user: () => 'Demo režimas',
-    load: async () => ({ orders: O, lines: L, missing: [] }), orders: list(O), lines: list(L) };
+  return { mode: 'demo', signIn: async () => ({ name: 'Demo' }), login(){}, logout(){ location.reload(); }, user: () => 'Demo',
+    load: async () => ({ orders: O, lines: L, comments: C, missing: [] }), orders: list(O), lines: list(L), comments: list(C) };
 }
 
 const store = configured ? makeSpStore() : makeDemoStore();
@@ -383,7 +439,7 @@ const store = configured ? makeSpStore() : makeDemoStore();
 /* =====================================================================
    BŪSENA IR VAIZDAS
    ===================================================================== */
-const S = { orders: [], lines: [], sel: null, q: '', filt: 'all', open: null, limit: 150, busy: false };
+const S = { orders: [], lines: [], comments: [], commentsOff: false, sel: null, q: '', filt: 'all', open: null, limit: 150, busy: false, view: 'reg', tdFilt: 'open' };
 const VIEW_KEY = 'z17_view';
 
 function groups(){
@@ -404,14 +460,24 @@ function groups(){
 }
 let G = [];
 const group = nr => G.find(g => g.o.nr === nr);
-const isDone = l => !!l.atkr || isCancelled(l);
+const isDone = l => !!(l.atkr || l.faktAtkr) || isCancelled(l);
 const isCancelled = l => /anuliuot|atšaukt|panaikint/i.test(l.pastaba || '');
+// TD (techninės dokumentacijos) būsena pagal QA laukus
+function tdStatus(l){
+  const t = String(l.td || '').trim();
+  if (/^tikslint/i.test(t)) return 'Tikslinti';
+  if (!/^reikia/i.test(t)) return /^nereik/i.test(t) ? 'Nereikia' : 'Nenurodyta';
+  if (l.tdEnd) return 'Baigta';
+  if (l.tdStart) return 'Rengiama';
+  return 'Nepradėta';
+}
+const TD_COLOR = { 'Nepradėta': 'var(--bad)', 'Rengiama': '#94690f', 'Baigta': 'var(--ok)', 'Tikslinti': 'var(--ink2)', 'Nereikia': 'var(--muted)', 'Nenurodyta': 'var(--muted)' };
 const gDone = g => g.lines.length > 0 && g.lines.every(isDone);
 const tipClass = t => (t || '').startsWith('Remont') ? 't-rem' : (t || '').startsWith('Aptarn') ? 't-apt' : 't-kit';
 const tipName = t => (t || '').startsWith('Kitos') ? 'Kitos paslaugos' : t;
 function status(l){
   if (isCancelled(l)) return ['Anuliuota', 'var(--muted)'];
-  if (l.atkr) return ['Atkrauta', 'var(--ok)'];
+  if (l.atkr || l.faktAtkr) return ['Atkrauta', 'var(--ok)'];
   if (l.terminas && l.terminas < TODAY) return ['Vėluoja', 'var(--bad)'];
   return ['Vykdoma', 'var(--ink2)'];
 }
@@ -434,9 +500,9 @@ function matches(g){
 
 /* ---------- filtrai ---------- */
 const FKEY = 'z17_filtrai';
-const F_EMPTY = { tipas: '', uzs: '', vykdo: '', tech: '', status: '', d1: '', d2: '', brez: '', mat: '' };
+const F_EMPTY = { tipas: '', uzs: '', vykdo: '', tech: '', status: '', tds: '', d1: '', d2: '', brez: '', mat: '' };
 const ORDER_F = ['tipas', 'uzs'];                                        // tikrinami užsakymo lygyje
-const LINE_F  = ['vykdo', 'tech', 'status', 'd1', 'd2', 'brez', 'mat']; // tikrinami eilučių lygyje
+const LINE_F  = ['vykdo', 'tech', 'status', 'tds', 'd1', 'd2', 'brez', 'mat']; // tikrinami eilučių lygyje
 try { const x = JSON.parse(localStorage.getItem(FKEY) || 'null'); if (x){ S.f = Object.assign({}, F_EMPTY, x.f); S.fOpen = !!x.open; S.sort = x.sort; } } catch (_) {}
 if (!S.f) S.f = Object.assign({}, F_EMPTY);
 if (!S.sort) S.sort = 'new';
@@ -469,6 +535,7 @@ function lineMatch(l){
   if (f.d2 && (!l.data || l.data > f.d2)) return false;
   if (f.brez && !has(l.brez, f.brez) && !has(l.turinys, f.brez)) return false;
   if (f.mat && !has(l.mat, f.mat)) return false;
+  if (f.tds && tdStatus(l) !== f.tds) return false;
   return true;
 }
 function orderMatch(g){
@@ -495,6 +562,7 @@ function renderFilters(){
       <div><label class="l">iki</label>${dateInput('data-flt="d2"', S.f.d2)}</div>
       <div><label class="l">Brėžinio Nr.</label><input data-flt="brez" value="${esc(S.f.brez)}" placeholder="turi…"></div>
       <div><label class="l">Medžiaga</label><input data-flt="mat" list="dl_fmat" value="${esc(S.f.mat)}" placeholder="turi…"><datalist id="dl_fmat">${uniq('mat').map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+      <div class="full"><label class="l">TD (dokumentacijos) būsena</label><select data-flt="tds">${opts(['Nepradėta', 'Rengiama', 'Baigta', 'Tikslinti', 'Nereikia', 'Nenurodyta'], S.f.tds)}</select></div>
     </div>` : ''}`;
 }
 function applyF(){ S.limit = 150; S.showAll = false; saveF(); renderFilters(); renderList(); renderMain(); }
@@ -516,6 +584,8 @@ function renderList(){
 
 /* ---------- dešinė: užsakymas ir eilutės ---------- */
 function renderMain(){
+  if (S.view === 'sum') return renderSummary();
+  if (S.view === 'qa') return renderQA();
   const g = group(S.sel), m = $('main');
   if (!g){ m.innerHTML = '<div class="empty">Pasirinkite užsakymą kairėje arba sukurkite naują.</div>'; return; }
   const o = g.o, ls = g.lines;
@@ -538,10 +608,10 @@ function renderMain(){
     ${o.nr !== NO_NR ? '<button class="primary" data-act="addLine">+ Nauja eilutė</button>' : ''}</div>
   <div class="card" style="overflow-x:auto">
     ${ls.length ? `<table>
-      <thead><tr><th>RMC Nr.</th><th>Reg. data</th><th>Užsakymo turinys</th><th class="num">Kiekis</th><th class="hide-sm">Atstovas</th><th class="hide-sm">Vykdo</th><th class="hide-sm">Technologas</th><th class="num">Norma</th><th>Terminas</th><th>Būsena</th><th></th></tr></thead>
+      <thead><tr><th>RMC Nr.</th><th>Reg. data</th><th>Užsakymo turinys</th><th class="num">Kiekis</th><th class="hide-sm">Atstovas</th><th class="hide-sm">Vykdo</th><th class="hide-sm">Technologas</th><th class="num">Norma</th><th>Terminas</th><th>Būsena</th><th class="hide-sm">TD</th><th></th></tr></thead>
       <tbody>${shownLines.map(l => { const [s, c] = status(l); return `
         <tr class="ln ${S.open === l.id ? 'sel' : ''}" data-act="openLine" data-id="${l.id}">
-          <td class="nw"><b>${mk(l.rmc || '—')}</b></td>
+          <td class="nw"><b>${mk(l.rmc || '—')}</b>${cCount(o.nr, l.id) ? `<div class="sub2" title="Komentarai">kom. ${cCount(o.nr, l.id)}</div>` : ''}</td>
           <td class="mono nw">${fmt(l.data)}</td>
           <td style="min-width:230px">${mk(l.turinys) || '<i class="muted">neįvesta</i>'}
             ${l.kitasUzs || l.kitaVieta ? `<div class="sub2">${esc([l.kitasUzs, l.kitaVieta].filter(Boolean).join(' · '))}</div>` : ''}
@@ -553,12 +623,118 @@ function renderMain(){
           <td class="num">${num(l.norma)}</td>
           <td class="mono nw">${fmt(l.terminas)}</td>
           <td><span class="st" style="color:${c}">${s}</span></td>
+          <td class="hide-sm">${tdCell(l)}</td>
           <td><button class="sm" data-act="lmenu" data-id="${l.id}" title="Veiksmai">⋯</button></td>
         </tr>`; }).join('')}</tbody></table>`
     : `<div class="empty">Šis užsakymas dar neturi eilučių.<br><br><button class="primary" data-act="addLine">+ Pridėti pirmą eilutę</button></div>`}
-  </div>`;
+  </div>
+  ${o.nr !== NO_NR ? `<div class="toolbar"><h3>Užsakymo komentarai</h3></div><div class="card cbox">${commentsHTML(o.nr, null)}</div>` : ''}`;
 }
-function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderFilters(); renderList(); renderMain(); }
+function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderTabs(); renderFilters(); renderList(); renderMain(); }
+
+/* ---------- komentarai ---------- */
+const cList = (nr, lineId) => S.comments.filter(c => c.nr === nr && (lineId ? +c.lineId === +lineId : !c.lineId)).sort((a, b) => String(a.created).localeCompare(String(b.created)));
+const cCount = (nr, lineId) => cList(nr, lineId).length;
+function commentsHTML(nr, lineId){
+  if (S.commentsOff) return `<div class="muted" style="font-size:12px">Komentarai neįjungti: svetainėje sukurkite sąrašą <b>${esc(SP_CONFIG.commentsList)}</b> (žr. README).</div>`;
+  const key = lineId ? 'l' + lineId : 'o';
+  const me = store.user();
+  return `${cList(nr, lineId).map(c => `
+    <div class="cmt"><div class="ch"><b>${esc(c.author || '—')}</b><span>${esc(fmtDT(c.created))}</span>${c.author && c.author === me ? `<a href="#" data-act="delCmt" data-id="${c.id}" title="Ištrinti komentarą">ištrinti</a>` : ''}</div>
+    <div class="ct">${esc(c.text)}</div></div>`).join('') || '<div class="muted" style="font-size:12px;margin-bottom:6px">Komentarų dar nėra.</div>'}
+    <div class="cnew"><textarea rows="2" id="cmt_${key}" placeholder="Rašyti komentarą…"></textarea>
+    <button data-act="addCmt" data-nr="${esc(nr)}" data-line="${lineId || ''}" data-key="${key}">Pridėti</button></div>`;
+}
+
+/* ---------- apimtis suvestinei / QA: eilutės pagal paiešką ir filtrus ---------- */
+function scopeLines(){
+  return G.filter(matches).flatMap(g => g.lines.filter(l => !lineFiltered() || lineMatch(l)).map(l => ({ g, l })));
+}
+const sum = (arr, f) => arr.reduce((s, x) => s + (+f(x) || 0), 0);
+const eur = v => v ? Math.round(v).toLocaleString('lt-LT') + ' €' : '—';
+const hrs = v => v ? (+v).toLocaleString('lt-LT', { maximumFractionDigits: 1 }) : '—';
+function tdCell(l){ const s = tdStatus(l); return s === 'Nenurodyta' ? '<span class="muted">—</span>' : `<span class="st" style="color:${TD_COLOR[s]}">${s}</span>`; }
+
+/* ---------- Suvestinė ---------- */
+function aggregate(rows, keyFn){
+  const m = new Map();
+  rows.forEach(({ g, l }) => {
+    const k = keyFn(g, l) || '(nenurodyta)';
+    if (!m.has(k)) m.set(k, { k, orders: new Set(), n: 0, open: 0, late: 0, verte: 0, norma: 0, faktas: 0, over: 0 });
+    const a = m.get(k);
+    a.orders.add(g.o.nr); a.n++;
+    if (!isDone(l)) a.open++;
+    if (status(l)[0] === 'Vėluoja') a.late++;
+    a.verte += +l.verte || 0; a.norma += +l.norma || 0; a.faktas += +l.faktas || 0;
+    if (l.norma && l.faktas && l.faktas > l.norma) a.over += l.faktas - l.norma;
+  });
+  return [...m.values()];
+}
+function aggTable(title, rows, act, note){
+  const ratio = a => a.norma && a.faktas ? Math.round(a.faktas / a.norma * 100) + ' %' : '—';
+  return `<div class="card sbox"><div class="sh"><h4>${title}</h4>${note ? `<span class="muted">${note}</span>` : ''}</div><div style="overflow-x:auto"><table class="stbl">
+    <thead><tr><th></th><th class="num">Užs.</th><th class="num">Eil.</th><th class="num">Atviros</th><th class="num">Vėluoja</th><th class="num">Sąmatinė vertė</th><th class="num">Norma, val.</th><th class="num">Faktas, val.</th><th class="num">Faktas / norma</th></tr></thead>
+    <tbody>${rows.map(a => `<tr class="ln" ${act ? `data-act="${act}" data-v="${esc(a.k)}"` : ''}><td class="ell" title="${esc(a.k)}">${esc(a.k)}</td><td class="num">${a.orders.size}</td><td class="num">${a.n}</td><td class="num">${a.open}</td>
+      <td class="num" style="${a.late ? 'color:var(--bad);font-weight:600' : ''}">${a.late || '—'}</td><td class="num">${eur(a.verte)}</td><td class="num">${hrs(a.norma)}</td><td class="num">${hrs(a.faktas)}</td>
+      <td class="num" style="${a.norma && a.faktas > a.norma ? 'color:var(--bad)' : ''}">${ratio(a)}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">Nėra duomenų</td></tr>'}</tbody></table></div></div>`;
+}
+function renderSummary(){
+  const all = scopeLines(), rows = S.sumOpen === false ? all : all.filter(x => !isDone(x.l));
+  const byOrder = aggregate(rows, g => g.o.nr), gOf = nr => group(nr);
+  const late = rows.filter(x => status(x.l)[0] === 'Vėluoja');
+  const over = sum(rows, x => x.l.norma && x.l.faktas > x.l.norma ? x.l.faktas - x.l.norma : 0);
+  const kpi = (v, k, cls) => `<div class="kpi"><div class="v ${cls || ''}">${v}</div><div class="k">${k}</div></div>`;
+  const topCost = byOrder.slice().sort((a, b) => Math.max(b.faktas, b.norma) - Math.max(a.faktas, a.norma)).slice(0, 15);
+  const topLate = aggregate(late, g => g.o.nr).sort((a, b) => b.verte - a.verte || lateDays(gOf(b.k)) - lateDays(gOf(a.k))).slice(0, 15);
+  const orderTable = (title, list, note) => `<div class="card sbox"><div class="sh"><h4>${title}</h4>${note ? `<span class="muted">${note}</span>` : ''}</div><div style="overflow-x:auto"><table class="stbl">
+    <thead><tr><th>Užs. Nr.</th><th>Užsakovas</th><th class="num">Eil.</th><th class="num">Vėluoja, d.</th><th class="num">Sąmatinė vertė</th><th class="num">Norma, val.</th><th class="num">Faktas, val.</th><th class="num">€ / val.</th></tr></thead>
+    <tbody>${list.map(a => { const g = gOf(a.k), h = Math.max(a.faktas, a.norma), ld = g ? lateDays(g) : 0; return `<tr class="ln" data-act="goOrder" data-nr="${esc(a.k)}"><td class="mono nw">${esc(a.k)}</td><td class="ell" title="${esc(g ? g.o.uzsakovas : '')}">${esc(g ? g.o.uzsakovas : '')}</td><td class="num">${a.n}</td>
+      <td class="num" style="${ld ? 'color:var(--bad);font-weight:600' : ''}">${ld || '—'}</td><td class="num">${eur(a.verte)}</td><td class="num">${hrs(a.norma)}</td><td class="num">${hrs(a.faktas)}</td><td class="num">${h && a.verte ? Math.round(a.verte / h) + ' €' : '—'}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Nėra duomenų</td></tr>'}</tbody></table></div></div>`;
+  $('main').innerHTML = `
+    <div class="pagehead"><h2>Suvestinė</h2><span class="muted">${fCount() || S.q ? 'Pagal paiešką ir filtrus kairėje' : 'Visi duomenys'} · ${rows.length} eil.</span><span class="sp"></span>
+      <div class="seg" style="width:auto"><b class="${S.sumOpen === false ? '' : 'on'}" data-act="sumOpen" data-v="1">Tik atviros</b><b class="${S.sumOpen === false ? 'on' : ''}" data-act="sumOpen" data-v="0">Visos eilutės</b></div></div>
+    <div class="kpis">
+      ${kpi(new Set(rows.map(x => x.g.o.nr)).size, 'Užsakymų')}${kpi(rows.length, 'RMC eilučių')}${kpi(late.length, 'Vėluoja', late.length ? 'bad' : '')}
+      ${kpi(eur(sum(rows, x => x.l.verte)), 'Sąmatinė vertė')}${kpi(hrs(sum(rows, x => x.l.norma)), 'Norma, val.')}${kpi(hrs(sum(rows, x => x.l.faktas)), 'Faktas, val.')}${kpi(hrs(over), 'Viršyta norma, val.', over ? 'bad' : '')}
+    </div>
+    <div class="sgrid">
+      ${orderTable('Vėluojantys užsakymai pagal vertę', topLate, 'prioritetas: didžiausia vertė')}
+      ${orderTable('Didžiausi laiko kaštai', topCost, 'pagal faktą arba normą')}
+      ${aggTable('Kas su kuo dirba – vykdytojai', aggregate(rows, (g, l) => l.vykdo).sort((a, b) => b.verte - a.verte), 'sumFilter', 'spustelėkite – filtruoti')}
+      ${aggTable('Technologai', aggregate(rows, (g, l) => l.technologas).sort((a, b) => b.verte - a.verte), 'sumFilterTech', 'spustelėkite – filtruoti')}
+      ${aggTable('Užsakovai', aggregate(rows, (g, l) => l.kitasUzs || g.o.uzsakovas).sort((a, b) => b.verte - a.verte).slice(0, 20), '', 'top 20 pagal vertę')}
+      ${aggTable('Projektai', aggregate(rows, g => tipName(g.o.tipas)).sort((a, b) => b.verte - a.verte), '')}
+    </div>`;
+}
+
+/* ---------- Dokumentacija (QA) ---------- */
+function renderQA(){
+  const all = scopeLines().filter(x => ['Nepradėta', 'Rengiama', 'Baigta', 'Tikslinti'].includes(tdStatus(x.l)) && (S.qaAll || !isDone(x.l)));
+  const st = x => tdStatus(x.l);
+  const cnt = k => all.filter(x => k === 'open' ? st(x) !== 'Baigta' : k === 'all' ? true : st(x) === k).length;
+  const tabs = [['open', 'Neužbaigta'], ['Nepradėta', 'Nepradėta'], ['Rengiama', 'Rengiama'], ['Tikslinti', 'Tikslinti'], ['Baigta', 'Baigta'], ['all', 'Visos']];
+  const order = { 'Nepradėta': 0, 'Tikslinti': 1, 'Rengiama': 2, 'Baigta': 3 };
+  const list = all.filter(x => S.tdFilt === 'all' ? true : S.tdFilt === 'open' ? st(x) !== 'Baigta' : st(x) === S.tdFilt)
+    .sort((a, b) => order[st(a)] - order[st(b)] || (a.l.terminas || '9').localeCompare(b.l.terminas || '9'));
+  const byR = aggregate(all.filter(x => st(x) !== 'Baigta'), (g, l) => l.tdReng);
+  const shown = list.slice(0, S.qaLimit || 200);
+  $('main').innerHTML = `
+    <div class="pagehead"><h2>Dokumentacija (QA)</h2><span class="muted">Eilutės, kurioms reikia TD arba tikslinti · ${fCount() || S.q ? 'pagal filtrus kairėje' : 'visi duomenys'}</span><span class="sp"></span>
+      <div class="seg" style="width:auto"><b class="${S.qaAll ? '' : 'on'}" data-act="qaAll" data-v="0">Neatkrautos</b><b class="${S.qaAll ? 'on' : ''}" data-act="qaAll" data-v="1">Su atkrautomis</b></div></div>
+    <div class="seg" style="margin-bottom:12px">${tabs.map(([k, n]) => `<b class="${S.tdFilt === k ? 'on' : ''}" data-act="tdFilt" data-v="${k}">${n}<span>${cnt(k)}</span></b>`).join('')}</div>
+    <div class="rchips">${byR.sort((a, b) => b.n - a.n).map(a => `<span class="rchip" data-act="tdReng" data-v="${esc(a.k)}">${esc(a.k)} <b>${a.n}</b></span>`).join('')}<span class="muted" style="font-size:12px">neužbaigtos pagal rengėją</span></div>
+    <div class="card" style="overflow-x:auto"><table class="stbl">
+      <thead><tr><th>Užs. Nr.</th><th>RMC</th><th>Užsakymo turinys</th><th>Užsakovas</th><th>TD</th><th>Rengėjas</th><th>Pradėta</th><th>Baigta</th><th>TD pastabos</th><th>Terminas</th><th>Atkrovimas</th></tr></thead>
+      <tbody>${shown.map(({ g, l }) => `<tr class="ln" data-act="openLineAny" data-id="${l.id}">
+        <td class="mono nw">${esc(g.o.nr)}</td><td class="mono nw"><b>${esc(l.rmc)}</b></td><td style="min-width:220px">${esc(l.turinys)}</td><td class="ell" style="max-width:180px" title="${esc(l.kitasUzs || g.o.uzsakovas)}">${esc(l.kitasUzs || g.o.uzsakovas)}</td>
+        <td>${tdCell(l)}</td><td class="nw">${esc(l.tdReng || '—')}</td><td class="mono nw">${fmt(l.tdStart)}</td><td class="mono nw">${fmt(l.tdEnd)}</td><td>${esc(l.tdPast || '')}</td>
+        <td class="mono nw" style="${status(l)[0] === 'Vėluoja' ? 'color:var(--bad);font-weight:600' : ''}">${fmt(l.terminas)}</td><td class="mono nw">${fmt(l.faktAtkr || l.atkr)}</td></tr>`).join('')
+        || '<tr><td colspan="11" class="empty">Nėra eilučių</td></tr>'}</tbody></table>
+      ${list.length > shown.length ? `<div class="more"><a href="#" data-act="qaMore">Rodyti daugiau (${list.length - shown.length})</a></div>` : ''}</div>`;
+}
+function renderTabs(){
+  $('tabs').innerHTML = [['reg', 'Registras'], ['sum', 'Suvestinė'], ['qa', 'Dokumentacija']].map(([k, n]) => `<b class="${S.view === k ? 'on' : ''}" data-act="view" data-v="${k}">${n}</b>`).join('');
+}
 
 /* ---------- eilutės forma ---------- */
 let draft = null;   // { ...eilutė, _isNew, _orig }
@@ -580,7 +756,7 @@ function openLine(line, isNew){
       <h3>${isNew ? 'Nauja eilutė' : 'RMC ' + esc(line.rmc)} <span class="muted" style="font-weight:400;font-size:13px">· ${esc(g.o.nr)}</span></h3>
       <button class="sm" data-act="closeD">✕</button></div>
     <div class="db">
-      ${isNew ? `<div class="warn">${line._copy ? 'Eilutės kopija – patikrinkite turinį ir išsaugokite.' : 'Atstovas, PO Nr., dokumentacija, vykdytojas, technologas ir terminas perimti iš paskutinės eilutės.'}</div>` : ''}
+      ${isNew ? `<div class="warn">${line._copy ? 'Eilutės kopija – patikrinkite turinį ir išsaugokite.' : 'Atstovas, PO Nr., vykdytojas, technologas, terminas ir „Ar reikia TD“ perimti iš paskutinės eilutės.'}</div>` : ''}
       <div class="grp"><h4>Registravimas</h4><div class="grid">
         <div class="full"><label class="l req">Užsakymo turinys</label><textarea rows="2" data-f="turinys">${esc(draft.turinys)}</textarea></div>
         ${fld('data', 'Registravimo data', 'date')}
@@ -590,7 +766,6 @@ function openLine(line, isNew){
         ${fld('atstovas', 'Užsakovo atstovas', 'text', uniq('atstovas'))}
         ${fld('terminas', 'Užsakymo terminas', 'date')}
         ${fld('po', 'Prioritetas / PO Nr.', 'text', ['Normalus', 'Skubus', 'Avarinis'])}
-        ${fld('dok', 'Dokumentacija', 'text', ['Reikia DOK', 'Nereikia DOK'])}
         ${fld('brez', 'Brėžinio Nr.')}
         ${fld('mat', 'Medžiaga / splavas', 'text', uniq('mat'))}
         <div><label class="l">Užsakovas</label><input value="${esc(g.o.uzsakovas || '')}" disabled><span class="inh">↳ iš užsakymo</span></div>
@@ -604,8 +779,20 @@ function openLine(line, isNew){
         ${fld('norma', 'Norma, val.', 'number')}
         ${fld('faktas', 'Faktiškai išdirbta, val.', 'number')}
         <div class="full"><label class="l">Pastaba</label><input data-f="pastaba" value="${esc(draft.pastaba || '')}"></div>
+        <div class="full"><label class="l">Technologo pastabos (užsakymas, dokumentacijos rengimas)</label><textarea rows="2" data-f="techPast">${esc(draft.techPast || '')}</textarea></div>
       </div></div>
-      <div class="grp"><h4>Atkrovimas</h4><div class="grid">${fld('atkr', 'Atkrovimo data', 'date')}</div></div>
+      <div class="grp"><h4>Kokybė / dokumentacija (TD) <span class="st" style="color:${TD_COLOR[tdStatus(draft)]};font-weight:600">${tdStatus(draft)}</span></h4><div class="grid">
+        ${fld('td', 'Ar reikia TD', 'text', TD_OPT)}
+        ${fld('tdReng', 'TD rengėjas', 'text', uniq('tdReng'))}
+        ${fld('tdStart', 'TD pradėta', 'date')}
+        ${fld('tdEnd', 'TD baigta', 'date')}
+        <div class="full"><label class="l">TD pastabos</label><input data-f="tdPast" value="${esc(draft.tdPast || '')}"></div>
+      </div></div>
+      <div class="grp"><h4>Atkrovimas</h4><div class="grid">
+        ${fld('atkr', 'Atkrovimo data (cecho vadovas)', 'date')}
+        ${fld('faktAtkr', 'Faktinis atkrovimas', 'date')}
+      </div></div>
+      ${isNew ? '' : `<div class="grp"><h4>Komentarai</h4><div class="cbox">${commentsHTML(g.o.nr, line.id)}</div></div>`}
       ${isNew ? '' : `<div class="meta">Sukurta: ${esc(fmtFull(localDate(line.created)))}${line.author ? ' · ' + esc(line.author) : ''}<br>Pakeista: ${esc(line.modified ? fmtDT(line.modified) : '—')}${line.editor ? ' · ' + esc(line.editor) : ''}</div>`}
     </div>
     <div class="df">
@@ -653,8 +840,8 @@ async function saveLine(){
 }
 function newLine(g, src, copy){
   src = src || g.lines[g.lines.length - 1] || {};
-  const carry = ['atstovas', 'terminas', 'vykdo', 'technologas', 'po', 'dok', 'kitasUzs', 'kitaVieta'];
-  const n = { uzsNr: g.o.nr, rmc: String(nextRmc()), data: TODAY, turinys: '', kiekis: null, verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, _copy: !!copy };
+  const carry = ['atstovas', 'terminas', 'vykdo', 'technologas', 'po', 'td', 'kitasUzs', 'kitaVieta'];
+  const n = { uzsNr: g.o.nr, rmc: String(nextRmc()), data: TODAY, turinys: '', kiekis: null, verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, faktAtkr: null, techPast: '', tdReng: '', tdStart: null, tdEnd: null, tdPast: '', _copy: !!copy };
   carry.forEach(k => n[k] = src[k] || (k === 'terminas' ? null : ''));
   if (copy) ['turinys', 'kiekis', 'verte', 'brez', 'mat', 'norma'].forEach(k => n[k] = src[k]);
   return n;
@@ -702,7 +889,7 @@ document.addEventListener('click', e => {
     case 'ftoggle': if (e.target.closest('a')) return; S.fOpen = !S.fOpen; saveF(); renderFilters(); break;
     case 'fclear': e.preventDefault(); S.f = Object.assign({}, F_EMPTY); applyF(); break;
     case 'showAll': e.preventDefault(); S.showAll = !S.showAll; renderMain(); break;
-    case 'selo': if (draft && !closeAsk()) return; S.sel = t.dataset.nr; S.showAll = false; try { localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderList(); renderMain(); break;
+    case 'selo': if (draft && !closeAsk()) return; S.sel = t.dataset.nr; S.showAll = false; if (S.view !== 'reg'){ S.view = 'reg'; try { localStorage.setItem('z17_tab', 'reg'); } catch (_) {} renderTabs(); } try { localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderList(); renderMain(); break;
     case 'openLine': if (e.target.closest('button')) return; if (draft && !closeAsk()) return; openLine(line); break;
     case 'lmenu': { e.stopPropagation(); const r = t.getBoundingClientRect();
       showMenu(r.left - 160, r.bottom + 4, [['Redaguoti', 'm_open', id], ['Kopijuoti eilutę', 'copyLine', id], '-', ['Ištrinti', 'delLine', id, true]]); break; }
@@ -730,6 +917,23 @@ document.addEventListener('click', e => {
       if (!Object.keys(patch).length){ closeModal(); break; }
       busy(t, async () => { await store.orders.update(g.o.id, patch); Object.assign(g.o, patch); closeModal(); render(); toast(g.o.nr + ' atnaujintas'); }); break; }
     case 'closeM': closeModal(); break;
+    case 'view': if (draft && !closeAsk()) return; S.view = t.dataset.v; try { localStorage.setItem('z17_tab', S.view); } catch (_) {} renderTabs(); renderMain(); $('main').scrollTop = 0; break;
+    case 'goOrder': S.sel = t.dataset.nr; S.view = 'reg'; try { localStorage.setItem('z17_tab', 'reg'); localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderTabs(); renderList(); renderMain(); break;
+    case 'sumOpen': S.sumOpen = t.dataset.v === '1'; renderMain(); break;
+    case 'sumFilter': case 'sumFilterTech': S.f[a === 'sumFilter' ? 'vykdo' : 'tech'] = t.dataset.v === '(nenurodyta)' ? '' : t.dataset.v; S.fOpen = true; applyF(); toast('Filtras: ' + t.dataset.v); break;
+    case 'tdFilt': S.tdFilt = t.dataset.v; S.qaLimit = 200; renderMain(); break;
+    case 'tdReng': S.f.tds = ''; S.q = t.dataset.v === '(nenurodyta)' ? '' : t.dataset.v; $('q').value = S.q; applyF(); break;
+    case 'qaAll': S.qaAll = t.dataset.v === '1'; S.qaLimit = 200; renderMain(); break;
+    case 'qaMore': e.preventDefault(); S.qaLimit = (S.qaLimit || 200) + 300; renderMain(); break;
+    case 'openLineAny': if (draft && !closeAsk()) return; { const l = S.lines.find(x => x.id === id); if (l){ S.sel = l.uzsNr || NO_NR; openLine(l); } } break;
+    case 'addCmt': { const ta = $('cmt_' + t.dataset.key), text = ta.value.trim(); if (!text){ toast('Įrašykite komentarą', true); break; }
+      const nr = t.dataset.nr, lineId = t.dataset.line ? +t.dataset.line : null;
+      busy(t, async () => { const c = await store.comments.create({ nr, lineId, text });
+        S.comments.push(Object.assign(c, { author: store.user(), created: c.created || new Date().toISOString() })); ta.value = '';
+        t.closest('.cbox').innerHTML = commentsHTML(nr, lineId); if (!lineId) renderMain(); else renderList(); toast('Komentaras pridėtas'); }); break; }
+    case 'delCmt': { e.preventDefault(); const c = S.comments.find(x => x.id === id); if (!c || !confirm('Ištrinti komentarą?')) break;
+      const box = t.closest('.cbox');
+      busy(t, async () => { await store.comments.remove(id); S.comments = S.comments.filter(x => x.id !== id); box.innerHTML = commentsHTML(c.nr, c.lineId ? +c.lineId : null); toast('Komentaras ištrintas'); }); break; }
   }
 });
 // ‹ › tarp eilučių
@@ -790,7 +994,8 @@ async function loadData(){
   $('main').innerHTML = '<div class="loading">Įkeliami duomenys iš SharePoint…</div>';
   try {
     const r = await store.load();
-    S.orders = r.orders; S.lines = r.lines;
+    S.orders = r.orders; S.lines = r.lines; S.comments = r.comments || []; S.commentsOff = !r.comments;
+    try { const v = localStorage.getItem('z17_tab'); if (v) S.view = v; } catch (_) {}
     if (r.missing.length){ $('banner').hidden = false; document.body.classList.add('has-banner'); $('banner').innerHTML = '<b>Sąraše nerasti stulpeliai:</b> ' + esc(r.missing.join(', ')) + '. Patikrinkite stulpelių pavadinimus (žr. README).'; }
     $('sub').textContent = (store.mode === 'sp' ? SP_CONFIG.siteUrl.replace(/^https:\/\//, '') : 'demo') + ' · ' + S.orders.length + ' užs. · ' + S.lines.length + ' eil.';
     try { const v = localStorage.getItem(VIEW_KEY); if (v) S.sel = v; } catch (_) {}

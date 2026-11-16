@@ -17,19 +17,25 @@ Tai **pagrindas**: viena prieiga visiems, be rolių ir patvirtinimų. Funkcijos 
 
 ### 1. SharePoint sąrašai
 
-Sąrašai kuriami iš `Z17_SharePoint_importas.xlsx` (failas ne repozitorijoje; jame – lentelės `Uzsakymai` ir `RMC_eilutes`).
+Sąrašai kuriami iš importo failų `Z17_Uzsakymai.xlsx` ir `Z17_RMC_eilutes.xlsx` (failai ne repozitorijoje).
 
-1. Įkelkite failą į SharePoint svetainės dokumentų biblioteką.
+1. Įkelkite failus į SharePoint svetainės dokumentų biblioteką.
 2. Svetainėje: **Naujas → Sąrašas → Iš „Excel“** → pasirinkite failą.
-3. Lentelė `Uzsakymai` → sąrašo pavadinimas **`Z17_Uzsakymai`**. Visi stulpeliai – *Viena teksto eilutė*.
-4. Lentelė `RMC_eilutes` → sąrašo pavadinimas **`Z17_RMC_eilutes`**. Tipai:
-   - *Data*: Registravimo data, Užsakymo terminas, Atkrovimo data
+3. `Z17_Uzsakymai.xlsx` → sąrašas **`Z17_Uzsakymai`**. Visi stulpeliai – *Viena teksto eilutė*.
+4. `Z17_RMC_eilutes.xlsx` → sąrašas **`Z17_RMC_eilutes`**. Tipai:
+   - *Data ir laikas (tik data)*: Registravimo data, Užsakymo terminas, Atkrovimo data, Faktinis atkrovimas, TD pradėta, TD baigta
    - *Skaičius*: Kiekis, Sąmatinė vertė, Norma (val.), Faktas (val.)
-   - *Kelios teksto eilutės*: Užsakymo turinys
-   - kiti – *Viena teksto eilutė*
-5. `Z17_RMC_eilutes` → Sąrašo parametrai → **Indeksuoti stulpeliai** → pridėti indeksą stulpeliui *Užs. Nr.* (eilučių bus > 5000).
+   - *Kelios teksto eilutės*: Užsakymo turinys, Technologo pastabos
+   - kiti – *Viena teksto eilutė* (RMC Nr. ir Užs. Nr. – būtinai tekstas)
+5. `Z17_RMC_eilutes` → Sąrašo parametrai → **Indeksuoti stulpeliai** → indeksas stulpeliui *Užs. Nr.*
+6. Komentarams – tuščias sąrašas **`Z17_Komentarai`** (Naujas → Sąrašas → Tuščias sąrašas) su stulpeliais:
+   - `Title` – paliekamas (į jį rašomas Užs. Nr.)
+   - **Eilutės ID** – *Skaičius* (tuščias = komentaras visam užsakymui)
+   - **Komentaras** – *Kelios teksto eilutės*
 
-Stulpelių pavadinimų nekeiskite – programa jų ieško pagal šiuos pavadinimus (žr. `ORDER_FIELDS` / `LINE_FIELDS` faile `index.html`). Jei kurio nors neranda, viršuje parodo įspėjimą.
+   Autorius ir laikas imami iš SharePoint (Sukūrė / Sukurta). Jei sąrašo nėra, programa veikia, tik komentarai išjungti.
+
+Stulpelių pavadinimų nekeiskite – programa jų ieško pagal šiuos pavadinimus (žr. `ORDER_FIELDS` / `LINE_FIELDS` / `COMMENT_FIELDS` faile `index.html`). Jei kurio nors neranda, viršuje parodo įspėjimą.
 
 ### 2. Entra ID programos registracija
 
@@ -65,13 +71,21 @@ Settings → Pages → *Deploy from a branch* → `main` / `/ (root)`. Adresas: 
 | Sąrašas | Vienas įrašas | Pagrindiniai stulpeliai |
 |---|---|---|
 | `Z17_Uzsakymai` | Iremo užsakymas | Užs. Nr. (Title), Projektas, Užsakovas, Objekto vieta |
-| `Z17_RMC_eilutes` | RMC eilutė | RMC Nr. (Title), Užs. Nr., datos, turinys, kiekis, vertė, PO Nr., dokumentacija, vykdo, technologas, norma, faktas, brėžinys, medžiaga, pastaba, atkrovimo data, Kitas užsakovas / Kita objekto vieta |
+| `Z17_RMC_eilutes` | RMC eilutė | RMC Nr. (Title), Užs. Nr., datos, turinys, kiekis, vertė, PO Nr., vykdo, technologas, norma, faktas, brėžinys, medžiaga, pastaba, atkrovimo data, faktinis atkrovimas, technologo pastabos, QA (Ar reikia TD, TD rengėjas, TD pradėta, TD baigta, TD pastabos), Kitas užsakovas / Kita objekto vieta |
+| `Z17_Komentarai` | komentaras | Title (Užs. Nr.), Eilutės ID, Komentaras + SharePoint autorius ir laikas |
 
 Eilutė su užsakymu susieta per tekstinį stulpelį *Užs. Nr.* „Kitas užsakovas“ / „Kita objekto vieta“ pildomi tik tada, kai eilutės reikšmė skiriasi nuo užsakymo.
 
+TD būsena skaičiuojama: *Ar reikia TD* = Reikia → Nepradėta / Rengiama (yra „TD pradėta“) / Baigta (yra „TD baigta“); Tikslinti; Nereikia.
+
+## Rodiniai
+
+- **Registras** – užsakymai ir RMC eilutės, filtrai, rikiavimas, komentarai
+- **Suvestinė** – vertė, normos ir fakto valandos pagal vykdytojus, technologus, užsakovus, projektus; vėluojantys užsakymai pagal vertę; didžiausi laiko kaštai (paiso filtrų)
+- **Dokumentacija** – QA: eilutės, kurioms reikia TD, pagal būseną ir rengėją
+
 ## Kas toliau (idėjos)
 
-- Filtrai pagal brėžinį, medžiagą, vykdytoją, datas
 - Operacijų stulpeliai (plazma, suvirinimas, …) ir eiga
 - Užsakymo aplanko kūrimas (esamas Power Automate srautas)
 - Eksportas į Excel
