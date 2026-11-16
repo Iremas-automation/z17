@@ -31,6 +31,19 @@ Sąrašai kuriami iš `Z17_SharePoint_importas.xlsx` (failas ne repozitorijoje; 
 
 Stulpelių pavadinimų nekeiskite – programa jų ieško pagal šiuos pavadinimus (žr. `ORDER_FIELDS` / `LINE_FIELDS` faile `index.html`). Jei kurio nors neranda, viršuje parodo įspėjimą.
 
+### 1a. Užsakymų aplankų nuorodos (neprivaloma)
+
+Atidarius užsakymą programa per Power Automate „folder lookup“ srautą suranda užsakymo aplanką (`IremasUsakymai2 › … › Iremas uzsakymai/<metai>/…`) ir parodo mygtuką **Atidaryti aplanką**. Rasta nuoroda įsimenama naršyklėje, tad srautas kviečiamas vieną kartą kiekvienam užsakymui (mygtukas ↻ – ieškoti iš naujo).
+
+Srauto URL turi `sig=` raktą (veikia kaip slaptažodis), todėl **jo nėra kode** (repo viešas). Jis laikomas SharePoint sąraše:
+
+1. Toje pačioje svetainėje sukurkite tuščią sąrašą **`Z17_Nustatymai`**.
+2. Pridėkite stulpelį **Reikšmė** – *Kelios teksto eilutės* (paprastas tekstas; URL ilgesnis nei 255 simbolių).
+3. Įrašas: Title = `FolderLookupUrl`, Reikšmė = srauto HTTP trigger URL.
+4. Teises į sąrašą rekomenduojama riboti (skaityti – tik programos naudotojams, keisti – IT).
+
+Jei sąrašo ar įrašo nėra, aplankų funkcija tiesiog nerodoma.
+
 ### 2. Entra ID programos registracija
 
 1. Entra ID → App registrations → **New registration** (pvz. „Iremas Ž-17“), *Single tenant*.
