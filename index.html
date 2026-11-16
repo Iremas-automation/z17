@@ -205,7 +205,8 @@ const ORDER_FIELDS = [
   ['nr',        'Title',         'Užs. Nr.',      'text'],
   ['tipas',     'Projektas',     'Projektas',     'text'],
   ['uzsakovas', 'Uzsakovas',     'Užsakovas',     'text'],
-  ['vieta',     'ObjektoVieta',  'Objekto vieta', 'text']
+  ['vieta',     'ObjektoVieta',  'Objekto vieta', 'text'],
+  ['aplankas',  'Aplankas',      'Aplankas',      'text', true]   // neprivalomas: išsaugota aplanko nuoroda
 ];
 const LINE_FIELDS = [
   ['rmc',         'Title',          'RMC Nr.',               'text'],
@@ -303,11 +304,11 @@ function makeSpStore(){
       const all = (r.value || []).filter(f => !f.ReadOnlyField && !f.Hidden);
       const norm = x => String(x || '').trim().toLowerCase();
       map = {}; missing = [];
-      spec.forEach(([ui, key, disp, type]) => {
+      spec.forEach(([ui, key, disp, type, optional]) => {
         const f = all.find(f => f.InternalName === key) || all.find(f => f.EntityPropertyName === key) ||
                   all.find(f => norm(f.Title) === norm(disp)) || all.find(f => norm(f.Title) === norm(key));
         if (f) map[ui] = { prop: f.EntityPropertyName || f.InternalName, internal: f.InternalName, type, spType: f.TypeAsString };
-        else missing.push(title + ' → ' + disp);
+        else if (!optional) missing.push(title + ' → ' + disp);
       });
       console.log('Stulpelių žemėlapis – ' + title, Object.fromEntries(Object.entries(map).map(([k, f]) => [k, f.prop + ' (' + f.spType + ')'])));
       return map;
@@ -343,7 +344,7 @@ function makeSpStore(){
     async function create(obj){ await fields(); const it = await sp(listUrl + '/items', 'POST', toBody(obj)); return Object.assign({}, obj, { id: it.Id, modified: it.Modified, created: it.Created }); }
     async function update(id, patch){ await fields(); await sp(listUrl + '/items(' + id + ')', 'POST', toBody(patch), { 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }); }
     async function remove(id){ await sp(listUrl + '/items(' + id + ')', 'POST', null, { 'X-HTTP-Method': 'DELETE', 'IF-MATCH': '*' }); }
-    return { all, create, update, remove, missing: () => missing };
+    return { all, create, update, remove, missing: () => missing, has: k => !!(map && map[k]) };
   }
   const orders = makeList(SP_CONFIG.ordersList, ORDER_FIELDS), lines = makeList(SP_CONFIG.linesList, LINE_FIELDS),
         settings = makeList(SP_CONFIG.settingsList, SETTING_FIELDS);
@@ -583,41 +584,76 @@ const folderUrl = () => S.settings.FolderLookupUrl || '';
 const folderCache = (() => { try { return JSON.parse(localStorage.getItem(FOLDER_KEY) || '{}'); } catch (_) { return {}; } })();
 function saveFolderCache(){ try { localStorage.setItem(FOLDER_KEY, JSON.stringify(folderCache)); } catch (_) {} }
 const spPathUrl = p => 'https://achemosgrupelt.sharepoint.com' + encodeURI(p);
+// 1) nuoroda, išsaugota užsakyme SharePoint'e (stulpelis „Aplankas“) – bendra visiems;
+// 2) šios naršyklės atmintis (jei stulpelio dar nėra); 3) paieška per srautą
 function folderState(nr){
+  if (S.folders[nr] && S.folders[nr].state === 'loading') return S.folders[nr];
+  const g = group(nr), saved = g && g.o.aplankas;
+  if (saved) return { state: 'found', url: saved, all: [], saved: true };
   if (S.folders[nr]) return S.folders[nr];
   const c = folderCache[nr];
   return c ? { state: 'found', url: c.url, all: c.all || [] } : null;
+}
+const canSaveFolder = g => g && !g.o.virtual && g.o.id && store.orders.has && store.orders.has('aplankas');
+async function saveFolder(nr, url, all){
+  const g = group(nr);
+  folderCache[nr] = { url, all: all || [], t: Date.now() }; saveFolderCache();
+  if (canSaveFolder(g) && g.o.aplankas !== url){
+    try { await store.orders.update(g.o.id, { aplankas: url }); g.o.aplankas = url; }
+    catch (e){ console.warn('Nepavyko išsaugoti aplanko nuorodos užsakyme:', e); }
+  }
 }
 async function lookupFolder(nr, force){
   if (!folderUrl()) return;
   if (!force && folderState(nr)) return;
   S.folders[nr] = { state: 'loading' }; updateFolderSlot(nr);
+  let diag = '';
   try {
     const res = await fetch(folderUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: nr }) });
-    if (res.status === 404){ S.folders[nr] = { state: 'notfound' }; delete folderCache[nr]; saveFolderCache(); }
-    else {
-      const d = await res.json().catch(() => ({}));
-      if (res.ok && d.status === 'found' && d.url){
-        S.folders[nr] = { state: 'found', url: d.url, all: d.all || [] };
-        folderCache[nr] = { url: d.url, all: d.all || [], t: Date.now() }; saveFolderCache();
-      } else if (res.status === 400) S.folders[nr] = { state: 'error', msg: d.message || 'Netinkamas užsakymo numeris' };
-      else S.folders[nr] = { state: 'error', msg: res.status === 429 ? 'Per daug užklausų – bandykite po minutės' : 'Aplankų paieška laikinai nepasiekiama' };
-    }
-  } catch (e){ console.warn('Aplanko paieška:', e); S.folders[nr] = { state: 'error', msg: 'Aplankų paieška nepasiekiama' }; }
+    const text = await res.text();
+    diag = 'HTTP ' + res.status + ' · užklausa {"order":"' + nr + '"} · atsakymas: ' + (text || '(tuščias)').slice(0, 400);
+    console.info('Aplanko paieška ' + nr + ': ' + diag);
+    let d = {}; try { d = text ? JSON.parse(text) : {}; } catch (_) {}
+    if (res.ok && d.status === 'found' && d.url){
+      S.folders[nr] = { state: 'found', url: d.url, all: d.all || [] };
+      await saveFolder(nr, d.url, d.all);
+    } else if (res.status === 404 || d.status === 'notfound') S.folders[nr] = { state: 'notfound', diag };
+    else if (res.status === 400) S.folders[nr] = { state: 'error', msg: d.message || 'Netinkamas užsakymo numeris', diag };
+    else S.folders[nr] = { state: 'error', msg: res.status === 429 ? 'Per daug užklausų – bandykite po minutės' : 'Aplankų paieška laikinai nepasiekiama', diag };
+  } catch (e){
+    diag = 'Užklausa nepavyko: ' + (e.message || e) + ' (dažniausiai – CORS arba tinklas)';
+    console.warn('Aplanko paieška ' + nr + ': ' + diag);
+    S.folders[nr] = { state: 'error', msg: 'Aplankų paieška nepasiekiama', diag };
+  }
   updateFolderSlot(nr);
 }
 const FOLDER_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 4.5a1 1 0 0 1 1-1h3.6l1.4 1.6h6a1 1 0 0 1 1 1v6.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>';
 function folderHTML(nr){
-  if (!folderUrl()) return '';
+  const g = group(nr);
+  if (!folderUrl() && !(g && g.o.aplankas) && !folderCache[nr]) return '';
   const f = folderState(nr);
+  const manual = `<button class="sm ghost" data-act="folderManual" data-nr="${esc(nr)}" title="Įklijuoti aplanko nuorodą ranka">Įvesti nuorodą</button>`;
+  const retry = folderUrl() ? `<button class="sm ghost" data-act="folderRefresh" data-nr="${esc(nr)}" title="Ieškoti iš naujo">↻</button>` : '';
   if (!f || f.state === 'loading') return `<span class="fstate muted"><span class="spin"></span>Ieškoma aplanko…</span>`;
   if (f.state === 'found'){
     const extra = (f.all || []).length > 1
       ? `<button class="sm" data-act="folderAll" data-nr="${esc(nr)}" title="Rasti keli aplankai">+${f.all.length - 1}</button>` : '';
-    return `<a class="btnlink" href="${esc(f.url)}" target="_blank" rel="noopener" title="${esc(decodeURI(f.url).replace(/^https:\/\/[^/]+/, ''))}">${FOLDER_SVG} Atidaryti aplanką</a>${extra}<button class="sm ghost" data-act="folderRefresh" data-nr="${esc(nr)}" title="Ieškoti iš naujo">↻</button>`;
+    let path = f.url; try { path = decodeURI(f.url).replace(/^https:\/\/[^/]+/, ''); } catch (_) {}
+    return `<a class="btnlink" href="${esc(f.url)}" target="_blank" rel="noopener" title="${esc(path)}${f.saved ? ' · išsaugota užsakyme' : ''}">${FOLDER_SVG} Atidaryti aplanką</a>${extra}<button class="sm ghost" data-act="folderMenu" data-nr="${esc(nr)}" title="Keisti nuorodą">⋯</button>`;
   }
-  if (f.state === 'notfound') return `<span class="fstate muted">Aplankas nerastas</span><button class="sm ghost" data-act="folderRefresh" data-nr="${esc(nr)}" title="Ieškoti dar kartą">↻</button>`;
-  return `<span class="fstate" style="color:var(--bad)">${esc(f.msg)}</span><button class="sm ghost" data-act="folderRefresh" data-nr="${esc(nr)}" title="Bandyti dar kartą">↻</button>`;
+  if (f.state === 'notfound') return `<span class="fstate muted" title="${esc(f.diag || '')}">Aplankas nerastas</span>${retry}${manual}`;
+  return `<span class="fstate" style="color:var(--bad)" title="${esc(f.diag || '')}">${esc(f.msg)}</span>${retry}${manual}`;
+}
+function folderManualModal(nr){
+  const f = folderState(nr), cur = f && f.state === 'found' ? f.url : '';
+  const diag = S.folders[nr] && S.folders[nr].diag;
+  modal('Aplanko nuoroda – ' + esc(nr), `
+    <label class="l">Nuoroda į aplanką SharePoint'e</label>
+    <input id="m_folder" value="${esc(cur)}" placeholder="https://achemosgrupelt.sharepoint.com/sites/IremasUsakymai2/…">
+    <p class="muted" style="font-size:12px">Atidarykite aplanką SharePoint'e, nukopijuokite adresą iš naršyklės ir įklijuokite čia. ${canSaveFolder(group(nr)) ? 'Nuoroda bus išsaugota užsakyme – matys visi.' : 'Užsakymų sąraše nėra stulpelio „Aplankas“ – nuoroda bus įsiminta tik šioje naršyklėje.'}</p>
+    ${diag ? `<details style="font-size:12px"><summary class="muted">Paieškos diagnostika</summary><pre style="white-space:pre-wrap;font-family:var(--mono);font-size:11px">${esc(diag)}</pre></details>` : ''}`,
+    `${cur ? `<button class="danger" data-act="folderClear" data-nr="${esc(nr)}">Pašalinti</button><span class="sp"></span>` : ''}<button data-act="closeM">Atšaukti</button><button class="primary" data-act="folderSave" data-nr="${esc(nr)}">Išsaugoti</button>`);
+  setTimeout(() => $('m_folder').focus(), 50);
 }
 function updateFolderSlot(nr){ const el = $('folderSlot'); if (el && S.sel === nr) el.innerHTML = folderHTML(nr); }
 
@@ -761,6 +797,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
   if (!e.target.closest('#menu')) closeMenu();
   if (!t) return;
+  if (t.closest('#menu')) setTimeout(closeMenu);   // pasirinkus meniu punktą – uždaryti meniu
   const a = t.dataset.act, g = group(S.sel), id = +t.dataset.id, line = S.lines.find(x => x.id === id);
   switch (a){
     case 'filt': S.filt = t.dataset.f; S.limit = 150; renderList(); break;
@@ -797,6 +834,17 @@ document.addEventListener('click', e => {
       busy(t, async () => { await store.orders.update(g.o.id, patch); Object.assign(g.o, patch); closeModal(); render(); toast(g.o.nr + ' atnaujintas'); }); break; }
     case 'closeM': closeModal(); break;
     case 'folderRefresh': lookupFolder(t.dataset.nr, true); break;
+    case 'folderManual': folderManualModal(t.dataset.nr); break;
+    case 'folderMenu': { e.stopPropagation(); const r = t.getBoundingClientRect(), nr = t.dataset.nr;
+      showMenu(r.left - 150, r.bottom + 4, [['Keisti nuorodą', 'folderManual', ''], ...(folderUrl() ? [['Ieškoti iš naujo', 'folderRefresh', '']] : [])]);
+      $('menu').querySelectorAll('div').forEach(d => d.dataset.nr = nr); break; }
+    case 'folderSave': { const nr = t.dataset.nr, url = $('m_folder').value.trim();
+      if (!/^https:\/\/[^\s]+$/.test(url)){ toast('Įklijuokite pilną nuorodą, prasidedančią https://', true); break; }
+      busy(t, async () => { S.folders[nr] = { state: 'found', url, all: [] }; await saveFolder(nr, url, []); closeModal(); updateFolderSlot(nr); toast('Aplanko nuoroda išsaugota'); }); break; }
+    case 'folderClear': { const nr = t.dataset.nr, g = group(nr);
+      busy(t, async () => { delete folderCache[nr]; saveFolderCache(); delete S.folders[nr];
+        if (canSaveFolder(g) && g.o.aplankas){ await store.orders.update(g.o.id, { aplankas: '' }); g.o.aplankas = ''; }
+        S.folders[nr] = { state: 'notfound' }; closeModal(); updateFolderSlot(nr); toast('Nuoroda pašalinta'); }); break; }
     case 'folderAll': { const f = folderState(t.dataset.nr);
       modal('Rasti keli aplankai – ' + esc(t.dataset.nr), `<p class="muted" style="font-size:13px;margin-top:0">Tas pats užsakymo numeris rastas keliose vietose (pvz. skirtinguose metuose).</p>` +
         f.all.map(p => `<div style="margin:6px 0"><a href="${esc(spPathUrl(p))}" target="_blank" rel="noopener">${esc(p.replace(/^.*?Iremas uzsakymai\//, ''))}</a></div>`).join(''),

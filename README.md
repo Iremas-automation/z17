@@ -42,7 +42,11 @@ Srauto URL turi `sig=` raktą (veikia kaip slaptažodis), todėl **jo nėra kode
 3. Įrašas: Title = `FolderLookupUrl`, Reikšmė = srauto HTTP trigger URL.
 4. Teises į sąrašą rekomenduojama riboti (skaityti – tik programos naudotojams, keisti – IT).
 
-Jei sąrašo ar įrašo nėra, aplankų funkcija tiesiog nerodoma.
+Jei sąrašo ar įrašo nėra, automatinė paieška neveikia.
+
+**Nuorodos išsaugojimas.** Sąraše `Z17_Uzsakymai` sukurkite stulpelį **Aplankas** (*Kelios teksto eilutės*). Rastas aplankas įrašomas į užsakymą, todėl kitą kartą (ir kitiems naudotojams) paieška nebekartojama. Jei paieška aplanko neranda, nuorodą galima įklijuoti ranka („Įvesti nuorodą“). Be šio stulpelio nuorodos įsimenamos tik naršyklėje.
+
+**Diagnostika.** Užvedus pelę ant „Aplankas nerastas“ / klaidos pranešimo matomas srauto atsakymas; jis taip pat rodomas „Įvesti nuorodą“ lange ir naršyklės konsolėje (F12).
 
 ### 2. Entra ID programos registracija
 
