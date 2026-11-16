@@ -31,6 +31,14 @@ Sąrašai kuriami iš `Z17_SharePoint_importas.xlsx` (failas ne repozitorijoje; 
 
 Stulpelių pavadinimų nekeiskite – programa jų ieško pagal šiuos pavadinimus (žr. `ORDER_FIELDS` / `LINE_FIELDS` faile `index.html`). Jei kurio nors neranda, viršuje parodo įspėjimą.
 
+### 1b. Komentarai (neprivaloma)
+
+Į abu sąrašus pridėkite stulpelį **Komentarai** – *Kelios teksto eilutės* (paprastas tekstas):
+- `Z17_RMC_eilutes` → komentaras eilutei (eilutės kortelėje, rodomas po užsakymo turiniu)
+- `Z17_Uzsakymai` → komentaras visam užsakymui (užsakymo redagavimo lange, rodomas užsakymo antraštėje)
+
+Kol stulpelio nėra, komentarų laukas tiesiog nerodomas.
+
 ### 1a. Užsakymų aplankų nuorodos (neprivaloma)
 
 Atidarius užsakymą programa per Power Automate „folder lookup“ srautą suranda užsakymo aplanką (`IremasUsakymai2 › … › Iremas uzsakymai/<metai>/…`) ir parodo mygtuką **Atidaryti aplanką**. Rasta nuoroda įsimenama naršyklėje, tad srautas kviečiamas vieną kartą kiekvienam užsakymui (mygtukas ↻ – ieškoti iš naujo).
