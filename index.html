@@ -103,6 +103,14 @@ mark{background:#f2d59a;color:inherit;border-radius:2px}
 .sortrow{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .sortrow select{padding:3px 7px;font-size:13px;color:var(--text)}
 .oitem .late{color:var(--bad);font-family:var(--mono);font-size:11px;font-weight:600}
+/* aplankas */
+.btnlink{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:var(--r);padding:5px 11px;text-decoration:none;white-space:nowrap}
+.btnlink:hover{background:var(--accent-weak);border-color:var(--accent);color:var(--accent)}
+#folderSlot{display:inline-flex;gap:6px;align-items:center}
+.fstate{font-size:12.5px;display:inline-flex;align-items:center;gap:7px}
+button.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.spin{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 /* drawer */
 .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(45,40,30,.14);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;z-index:10}
 .drawer.open{transform:none}
@@ -185,7 +193,8 @@ const SP_CONFIG = {
   clientId: '9c41bac4-f17a-47cf-8347-d30093ee22cb',                                   // App registration → Application (client) ID
   siteUrl:  'https://achemosgrupelt.sharepoint.com/sites/Iremas2',   // SharePoint svetainė, kurioje sukurti sąrašai
   ordersList: 'Z17_Uzsakymai',
-  linesList:  'Z17_RMC_eilutes'
+  linesList:  'Z17_RMC_eilutes',
+  settingsList: 'Z17_Nustatymai'   // Title = raktas, „Reikšmė“ = reikšmė (pvz. FolderLookupUrl – NEdėti į kodą, repo viešas)
 };
 /* ===================================================================== */
 
@@ -220,6 +229,7 @@ const LINE_FIELDS = [
   ['kitasUzs',    'KitasUzsakovas', 'Kitas užsakovas',       'text'],
   ['kitaVieta',   'KitaVieta',      'Kita objekto vieta',    'text']
 ];
+const SETTING_FIELDS = [['key', 'Title', 'Title', 'text'], ['value', 'Reiksme', 'Reikšmė', 'text']];
 const TIPAI = ['Remontas', 'Aptarnavimas', 'Kitos paslaugos, Iremas'];
 const NO_NR = '(be Užs. Nr.)';
 
@@ -335,7 +345,8 @@ function makeSpStore(){
     async function remove(id){ await sp(listUrl + '/items(' + id + ')', 'POST', null, { 'X-HTTP-Method': 'DELETE', 'IF-MATCH': '*' }); }
     return { all, create, update, remove, missing: () => missing };
   }
-  const orders = makeList(SP_CONFIG.ordersList, ORDER_FIELDS), lines = makeList(SP_CONFIG.linesList, LINE_FIELDS);
+  const orders = makeList(SP_CONFIG.ordersList, ORDER_FIELDS), lines = makeList(SP_CONFIG.linesList, LINE_FIELDS),
+        settings = makeList(SP_CONFIG.settingsList, SETTING_FIELDS);
 
   return {
     mode: 'sp',
@@ -351,7 +362,12 @@ function makeSpStore(){
     login: () => pca.loginRedirect({ scopes: SCOPES }),
     logout: () => pca.logoutRedirect({ account, postLogoutRedirectUri: location.origin + location.pathname }),
     user: () => account && (account.name || account.username),
-    async load(){ const [o, l] = await Promise.all([orders.all(), lines.all()]); return { orders: o, lines: l, missing: orders.missing().concat(lines.missing()) }; },
+    async load(){
+      const [o, l, s] = await Promise.all([orders.all(), lines.all(),
+        settings.all().catch(e => { console.info('Nustatymų sąrašas nepasiekiamas:', e.message); return []; })]);
+      const cfg = {}; s.forEach(x => { if (x.key) cfg[x.key.trim()] = String(x.value || '').trim(); });
+      return { orders: o, lines: l, settings: cfg, missing: orders.missing().concat(lines.missing()) };
+    },
     orders, lines
   };
 }
@@ -375,7 +391,7 @@ function makeDemoStore(){
     update: async () => {}, remove: async () => {}
   });
   return { mode: 'demo', signIn: async () => ({ name: 'Demo' }), login(){}, logout(){ location.reload(); }, user: () => 'Demo režimas',
-    load: async () => ({ orders: O, lines: L, missing: [] }), orders: list(O), lines: list(L) };
+    load: async () => ({ orders: O, lines: L, settings: {}, missing: [] }), orders: list(O), lines: list(L) };
 }
 
 const store = configured ? makeSpStore() : makeDemoStore();
@@ -383,7 +399,7 @@ const store = configured ? makeSpStore() : makeDemoStore();
 /* =====================================================================
    BŪSENA IR VAIZDAS
    ===================================================================== */
-const S = { orders: [], lines: [], sel: null, q: '', filt: 'all', open: null, limit: 150, busy: false };
+const S = { orders: [], lines: [], settings: {}, folders: {}, sel: null, q: '', filt: 'all', open: null, limit: 150, busy: false };
 const VIEW_KEY = 'z17_view';
 
 function groups(){
@@ -524,6 +540,7 @@ function renderMain(){
   m.innerHTML = `
   <div class="card ohead">
     <div class="title"><h2>${esc(o.nr)}</h2>${o.tipas ? `<span class="tag ${tipClass(o.tipas)}">${esc(tipName(o.tipas))}</span>` : ''}<span class="sp"></span>
+      ${o.nr !== NO_NR ? `<span id="folderSlot">${folderHTML(o.nr)}</span>` : ''}
       ${o.virtual ? (o.nr !== NO_NR ? `<button data-act="createMissing">Sukurti užsakymo įrašą</button>` : '') : `<button data-act="editOrder">Redaguoti užsakymą</button>`}</div>
     ${o.virtual && o.nr !== NO_NR ? `<div class="warn full" style="flex-basis:100%;margin:0 0 4px">Eilutės nurodo šį Užs. Nr., bet sąraše „${esc(SP_CONFIG.ordersList)}“ tokio užsakymo nėra.</div>` : ''}
     <div class="f"><label>Užsakovas</label><div>${esc(o.uzsakovas || '—')}</div></div>
@@ -558,7 +575,56 @@ function renderMain(){
     : `<div class="empty">Šis užsakymas dar neturi eilučių.<br><br><button class="primary" data-act="addLine">+ Pridėti pirmą eilutę</button></div>`}
   </div>`;
 }
+/* ---------- užsakymo aplankas (Power Automate „folder lookup“ srautas) ----------
+   Srauto URL su sig= raktu laikomas SharePoint sąraše Z17_Nustatymai (raktas FolderLookupUrl),
+   ne kode – repozitorija vieša. Rastos nuorodos įsimenamos naršyklėje. */
+const FOLDER_KEY = 'z17_aplankai';
+const folderUrl = () => S.settings.FolderLookupUrl || '';
+const folderCache = (() => { try { return JSON.parse(localStorage.getItem(FOLDER_KEY) || '{}'); } catch (_) { return {}; } })();
+function saveFolderCache(){ try { localStorage.setItem(FOLDER_KEY, JSON.stringify(folderCache)); } catch (_) {} }
+const spPathUrl = p => 'https://achemosgrupelt.sharepoint.com' + encodeURI(p);
+function folderState(nr){
+  if (S.folders[nr]) return S.folders[nr];
+  const c = folderCache[nr];
+  return c ? { state: 'found', url: c.url, all: c.all || [] } : null;
+}
+async function lookupFolder(nr, force){
+  if (!folderUrl()) return;
+  if (!force && folderState(nr)) return;
+  S.folders[nr] = { state: 'loading' }; updateFolderSlot(nr);
+  try {
+    const res = await fetch(folderUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: nr }) });
+    if (res.status === 404){ S.folders[nr] = { state: 'notfound' }; delete folderCache[nr]; saveFolderCache(); }
+    else {
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.status === 'found' && d.url){
+        S.folders[nr] = { state: 'found', url: d.url, all: d.all || [] };
+        folderCache[nr] = { url: d.url, all: d.all || [], t: Date.now() }; saveFolderCache();
+      } else if (res.status === 400) S.folders[nr] = { state: 'error', msg: d.message || 'Netinkamas užsakymo numeris' };
+      else S.folders[nr] = { state: 'error', msg: res.status === 429 ? 'Per daug užklausų – bandykite po minutės' : 'Aplankų paieška laikinai nepasiekiama' };
+    }
+  } catch (e){ console.warn('Aplanko paieška:', e); S.folders[nr] = { state: 'error', msg: 'Aplankų paieška nepasiekiama' }; }
+  updateFolderSlot(nr);
+}
+const FOLDER_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 4.5a1 1 0 0 1 1-1h3.6l1.4 1.6h6a1 1 0 0 1 1 1v6.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>';
+function folderHTML(nr){
+  if (!folderUrl()) return '';
+  const f = folderState(nr);
+  if (!f || f.state === 'loading') return `<span class="fstate muted"><span class="spin"></span>Ieškoma aplanko…</span>`;
+  if (f.state === 'found'){
+    const extra = (f.all || []).length > 1
+      ? `<button class="sm" data-act="folderAll" data-nr="${esc(nr)}" title="Rasti keli aplankai">+${f.all.length - 1}</button>` : '';
+    return `<a class="btnlink" href="${esc(f.url)}" target="_blank" rel="noopener" title="${esc(decodeURI(f.url).replace(/^https:\/\/[^/]+/, ''))}">${FOLDER_SVG} Atidaryti aplanką</a>${extra}<button class="sm ghost" data-act="folderRefresh" data-nr="${esc(nr)}" title="Ieškoti iš naujo">↻</button>`;
+  }
+  if (f.state === 'notfound') return `<span class="fstate muted">Aplankas nerastas</span><button class="sm ghost" data-act="folderRefresh" data-nr="${esc(nr)}" title="Ieškoti dar kartą">↻</button>`;
+  return `<span class="fstate" style="color:var(--bad)">${esc(f.msg)}</span><button class="sm ghost" data-act="folderRefresh" data-nr="${esc(nr)}" title="Bandyti dar kartą">↻</button>`;
+}
+function updateFolderSlot(nr){ const el = $('folderSlot'); if (el && S.sel === nr) el.innerHTML = folderHTML(nr); }
+
 function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderFilters(); renderList(); renderMain(); }
+// atidarius užsakymą – automatiškai surasti aplanką (vieną kartą; rastas įsimenamas)
+const renderMainBase = renderMain;
+renderMain = function(){ renderMainBase(); const g = group(S.sel); if (g && g.o.nr !== NO_NR) lookupFolder(g.o.nr); };
 
 /* ---------- eilutės forma ---------- */
 let draft = null;   // { ...eilutė, _isNew, _orig }
@@ -730,6 +796,11 @@ document.addEventListener('click', e => {
       if (!Object.keys(patch).length){ closeModal(); break; }
       busy(t, async () => { await store.orders.update(g.o.id, patch); Object.assign(g.o, patch); closeModal(); render(); toast(g.o.nr + ' atnaujintas'); }); break; }
     case 'closeM': closeModal(); break;
+    case 'folderRefresh': lookupFolder(t.dataset.nr, true); break;
+    case 'folderAll': { const f = folderState(t.dataset.nr);
+      modal('Rasti keli aplankai – ' + esc(t.dataset.nr), `<p class="muted" style="font-size:13px;margin-top:0">Tas pats užsakymo numeris rastas keliose vietose (pvz. skirtinguose metuose).</p>` +
+        f.all.map(p => `<div style="margin:6px 0"><a href="${esc(spPathUrl(p))}" target="_blank" rel="noopener">${esc(p.replace(/^.*?Iremas uzsakymai\//, ''))}</a></div>`).join(''),
+        `<button data-act="closeM">Uždaryti</button>`); break; }
   }
 });
 // ‹ › tarp eilučių
@@ -790,7 +861,7 @@ async function loadData(){
   $('main').innerHTML = '<div class="loading">Įkeliami duomenys iš SharePoint…</div>';
   try {
     const r = await store.load();
-    S.orders = r.orders; S.lines = r.lines;
+    S.orders = r.orders; S.lines = r.lines; S.settings = r.settings || {};
     if (r.missing.length){ $('banner').hidden = false; document.body.classList.add('has-banner'); $('banner').innerHTML = '<b>Sąraše nerasti stulpeliai:</b> ' + esc(r.missing.join(', ')) + '. Patikrinkite stulpelių pavadinimus (žr. README).'; }
     $('sub').textContent = (store.mode === 'sp' ? SP_CONFIG.siteUrl.replace(/^https:\/\//, '') : 'demo') + ' · ' + S.orders.length + ' užs. · ' + S.lines.length + ' eil.';
     try { const v = localStorage.getItem(VIEW_KEY); if (v) S.sel = v; } catch (_) {}
