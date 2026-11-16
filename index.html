@@ -82,6 +82,27 @@ td b{font-family:var(--mono);font-weight:600}
 .st::before{content:"";width:8px;height:8px;border-radius:2px;background:currentColor}
 .empty{padding:36px;text-align:center;color:var(--muted)}
 mark{background:#f2d59a;color:inherit;border-radius:2px}
+/* filtrai */
+.fbox{border:1px solid var(--line);border-radius:var(--r);background:var(--field)}
+.fhead{display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;font-size:13px;user-select:none}
+.fhead:hover{background:var(--accent-weak);border-radius:var(--r)}
+.fhead .tw{width:12px;color:var(--muted)}
+.fhead a{font-size:12px}
+.fc{background:var(--accent);color:#fff;font-family:var(--mono);font-size:10px;border-radius:9px;padding:0 6px;font-weight:600}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 8px;padding:4px 10px 10px;border-top:1px solid var(--line)}
+.fgrid .full{grid-column:1/-1}
+.fgrid input,.fgrid select{padding:4px 7px;font-size:13px;background:var(--panel)}
+.fgrid .l{margin-top:4px}
+.finfo{font-size:12px;color:var(--muted);margin-right:8px}
+.dwrap{position:relative;display:flex}
+.dwrap input[data-date]{padding-right:30px;font-family:var(--mono);font-size:13px}
+.dwrap input.bad{border-color:var(--bad);box-shadow:0 0 0 3px #ead0ca}
+.dbtn{position:absolute;right:3px;top:50%;transform:translateY(-50%);border:0;background:transparent;padding:3px 5px;color:var(--muted);line-height:0}
+.dbtn:hover{color:var(--accent);background:transparent}
+.dpick{position:absolute;left:0;bottom:0;width:100%;height:0;opacity:0;pointer-events:none;border:0;padding:0}
+.sortrow{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.sortrow select{padding:3px 7px;font-size:13px;color:var(--text)}
+.oitem .late{color:var(--bad);font-family:var(--mono);font-size:11px;font-weight:600}
 /* drawer */
 .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(45,40,30,.14);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;z-index:10}
 .drawer.open{transform:none}
@@ -136,7 +157,15 @@ body.locked header,body.locked .app,body.locked .banner{display:none}
   <aside>
     <div class="search">
       <input id="q" placeholder="Ieškoti: Užs. Nr., RMC, užsakovas, turinys, brėžinys…" autocomplete="off">
+      <div class="fbox" id="fbox"></div>
       <div class="seg" id="flt"></div>
+      <div class="sortrow"><label for="sortSel">Rikuoti</label><select id="sortSel">
+        <option value="new">Naujausi pirmi</option>
+        <option value="old">Seniausi pirmi</option>
+        <option value="late">Labiausiai vėluojantys</option>
+        <option value="uzs">Užsakovas A–Ž</option>
+        <option value="nr">Užs. Nr.</option>
+      </select></div>
     </div>
     <div class="olist" id="olist"></div>
     <div class="newo"><button class="primary" style="width:100%" data-act="newOrder">+ Naujas užsakymas</button></div>
@@ -199,8 +228,26 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const localDate = d => { const x = new Date(d); return isNaN(x) ? null : x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); };
 const TODAY = localDate(new Date());
-const fmt = d => d ? String(d).slice(5,10).replace('-','.') : '—';
-const fmtFull = d => d ? String(d).replace(/-/g,'.') : '—';
+/* Datos visur rodomos ir saugomos LT formatu YYYY-MM-DD */
+const fmt = d => d ? String(d).slice(0, 10) : '—';
+const fmtFull = fmt;
+const fmtDT = d => { const x = new Date(d); return isNaN(x) ? '—' : localDate(x) + ' ' + String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); };
+// priima 2026-11-16, 2026.11.16, 2026 11 16, 20261116, 16.11.2026, 16/11/2026 → '2026-11-16' (arba null, jei neteisinga)
+function normDate(s){
+  s = String(s || '').trim(); if (!s) return '';
+  let y, m, d, r;
+  if ((r = s.match(/^(\d{4})[-./ ]?(\d{1,2})[-./ ]?(\d{1,2})$/))) [, y, m, d] = r;
+  else if ((r = s.match(/^(\d{1,2})[-./ ](\d{1,2})[-./ ](\d{4})$/))) [, d, m, y] = r;
+  else return null;
+  const x = new Date(+y, +m - 1, +d);
+  if (x.getFullYear() !== +y || x.getMonth() !== +m - 1 || x.getDate() !== +d) return null;
+  return localDate(x);
+}
+const CAL_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>';
+// teksto laukas YYYY-MM-DD + kalendoriaus mygtukas (naršyklės kalendorius naudojamas tik pasirinkimui)
+function dateInput(attrs, value){
+  return `<div class="dwrap"><input type="text" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" data-date="1" ${attrs} value="${esc(value || '')}"><button type="button" class="dbtn" data-act="pick" tabindex="-1" title="Kalendorius">${CAL_SVG}</button><input type="date" class="dpick" tabindex="-1" aria-hidden="true"></div>`;
+}
 const num = v => v == null || v === '' ? '—' : Number(v).toLocaleString('lt-LT', {maximumFractionDigits: 2});
 function toast(x, err){ const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = x; $('toasts').appendChild(t); setTimeout(() => t.remove(), err ? 7000 : 2600); }
 
@@ -374,21 +421,92 @@ function uniq(field){ return [...new Set(S.lines.map(l => l[field]).filter(Boole
 
 /* ---------- kairė: užsakymų sąrašas ---------- */
 function matches(g){
+  if (!orderMatch(g)) return false;
   const q = S.q.toLowerCase().split(/\s+/).filter(Boolean);
   if (!q.length) return true;
   const hay = [g.o.nr, g.o.uzsakovas, g.o.vieta, ...g.lines.flatMap(l => [l.rmc, l.turinys, l.brez, l.mat, l.vykdo, l.technologas, l.po, l.kitasUzs])].join(' ').toLowerCase();
   return q.every(w => hay.includes(w));
 }
+
+/* ---------- filtrai ---------- */
+const FKEY = 'z17_filtrai';
+const F_EMPTY = { tipas: '', uzs: '', vykdo: '', tech: '', status: '', d1: '', d2: '', brez: '', mat: '' };
+const ORDER_F = ['tipas', 'uzs'];                                        // tikrinami užsakymo lygyje
+const LINE_F  = ['vykdo', 'tech', 'status', 'd1', 'd2', 'brez', 'mat']; // tikrinami eilučių lygyje
+try { const x = JSON.parse(localStorage.getItem(FKEY) || 'null'); if (x){ S.f = Object.assign({}, F_EMPTY, x.f); S.fOpen = !!x.open; S.sort = x.sort; } } catch (_) {}
+if (!S.f) S.f = Object.assign({}, F_EMPTY);
+if (!S.sort) S.sort = 'new';
+const DAY = 864e5;
+// kiek dienų vėluoja labiausiai vėluojanti neatkrauta eilutė (0 – nevėluoja)
+function lateDays(g){
+  let m = 0;
+  g.lines.forEach(l => { if (!isDone(l) && l.terminas && l.terminas < TODAY) m = Math.max(m, Math.round((new Date(TODAY) - new Date(l.terminas)) / DAY)); });
+  return m;
+}
+function sortGroups(list){
+  const by = {
+    new:  (a, b) => (b.last || '').localeCompare(a.last || ''),
+    old:  (a, b) => (a.last || '9').localeCompare(b.last || '9'),
+    late: (a, b) => lateDays(b) - lateDays(a) || (b.last || '').localeCompare(a.last || ''),
+    uzs:  (a, b) => (a.o.uzsakovas || '￿').localeCompare(b.o.uzsakovas || '￿', 'lt') || String(a.o.nr).localeCompare(String(b.o.nr), 'lt', { numeric: true }),
+    nr:   (a, b) => String(b.o.nr).localeCompare(String(a.o.nr), 'lt', { numeric: true })
+  }[S.sort] || (() => 0);
+  return list.slice().sort(by);
+}
+const fCount = () => Object.values(S.f).filter(Boolean).length;
+const lineFiltered = () => LINE_F.some(k => S.f[k]);
+const has = (v, q) => String(v || '').toLowerCase().includes(q.toLowerCase());
+function lineMatch(l){
+  const f = S.f;
+  if (f.vykdo && l.vykdo !== f.vykdo) return false;
+  if (f.tech && l.technologas !== f.tech) return false;
+  if (f.status && status(l)[0] !== f.status) return false;
+  if (f.d1 && (!l.data || l.data < f.d1)) return false;
+  if (f.d2 && (!l.data || l.data > f.d2)) return false;
+  if (f.brez && !has(l.brez, f.brez) && !has(l.turinys, f.brez)) return false;
+  if (f.mat && !has(l.mat, f.mat)) return false;
+  return true;
+}
+function orderMatch(g){
+  const f = S.f;
+  if (f.tipas && tipName(g.o.tipas) !== f.tipas) return false;
+  if (f.uzs && !has(g.o.uzsakovas, f.uzs) && !g.lines.some(l => has(l.kitasUzs, f.uzs))) return false;
+  if (lineFiltered() && !g.lines.some(lineMatch)) return false;
+  return true;
+}
+function saveF(){ try { localStorage.setItem(FKEY, JSON.stringify({ f: S.f, open: S.fOpen, sort: S.sort })); } catch (_) {} }
+function renderFilters(){
+  const opts = (arr, cur) => '<option value="">Visi</option>' + arr.map(v => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  const uzs = [...new Set(S.orders.map(o => o.uzsakovas).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'lt'));
+  const n = fCount();
+  $('fbox').innerHTML = `
+    <div class="fhead" data-act="ftoggle"><span class="tw">${S.fOpen ? '▾' : '▸'}</span><b>Filtrai</b>${n ? `<span class="fc">${n}</span>` : ''}<span class="sp"></span>${n ? '<a href="#" data-act="fclear">Išvalyti</a>' : ''}</div>
+    ${S.fOpen ? `<div class="fgrid">
+      <div><label class="l">Projektas</label><select data-flt="tipas">${opts(['Remontas', 'Aptarnavimas', 'Kitos paslaugos'], S.f.tipas)}</select></div>
+      <div><label class="l">Eilutės būsena</label><select data-flt="status">${opts(['Vykdoma', 'Vėluoja', 'Atkrauta', 'Anuliuota'], S.f.status)}</select></div>
+      <div class="full"><label class="l">Užsakovas</label><input data-flt="uzs" list="dl_fuzs" value="${esc(S.f.uzs)}" placeholder="Visi"><datalist id="dl_fuzs">${uzs.map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+      <div><label class="l">Vykdo</label><select data-flt="vykdo">${opts(uniq('vykdo'), S.f.vykdo)}</select></div>
+      <div><label class="l">Technologas</label><select data-flt="tech">${opts(uniq('technologas'), S.f.tech)}</select></div>
+      <div><label class="l">Registruota nuo</label>${dateInput('data-flt="d1"', S.f.d1)}</div>
+      <div><label class="l">iki</label>${dateInput('data-flt="d2"', S.f.d2)}</div>
+      <div><label class="l">Brėžinio Nr.</label><input data-flt="brez" value="${esc(S.f.brez)}" placeholder="turi…"></div>
+      <div><label class="l">Medžiaga</label><input data-flt="mat" list="dl_fmat" value="${esc(S.f.mat)}" placeholder="turi…"><datalist id="dl_fmat">${uniq('mat').map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+    </div>` : ''}`;
+}
+function applyF(){ S.limit = 150; S.showAll = false; saveF(); renderFilters(); renderList(); renderMain(); }
+
 function renderList(){
-  const cnt = { all: G.length, open: G.filter(g => !gDone(g)).length, done: G.filter(gDone).length };
+  const base = G.filter(matches);
+  const cnt = { all: base.length, open: base.filter(g => !gDone(g)).length, done: base.filter(gDone).length };
   $('flt').innerHTML = [['all','Visi'],['open','Vykdomi'],['done','Užbaigti']].map(([k, n]) => `<b class="${S.filt === k ? 'on' : ''}" data-act="filt" data-f="${k}">${n}<span>${cnt[k]}</span></b>`).join('');
-  const list = G.filter(g => (S.filt === 'all' || (S.filt === 'done') === gDone(g)) && matches(g));
+  const list = sortGroups(base.filter(g => S.filt === 'all' || (S.filt === 'done') === gDone(g)));
+  $('sortSel').value = S.sort;
   const shown = list.slice(0, S.limit);
-  $('olist').innerHTML = shown.map(g => `
+  $('olist').innerHTML = shown.map(g => { const ld = lateDays(g); return `
     <div class="oitem ${g.o.nr === S.sel ? 'sel' : ''}" data-act="selo" data-nr="${esc(g.o.nr)}">
-      <span class="nr">${mk(g.o.nr)}</span><span class="n">${g.lines.length} eil.</span>
+      <span class="nr">${mk(g.o.nr)}</span><span class="n">${ld ? `<span class="late" title="Labiausiai vėluojanti eilutė">vėluoja ${ld} d.</span> · ` : ''}${g.lines.length} eil.</span>
       <span class="cl">${mk(g.o.uzsakovas || '—')}${g.o.vieta && g.o.vieta !== g.o.uzsakovas ? ' · ' + esc(g.o.vieta) : ''}</span>
-    </div>`).join('') + (list.length > shown.length ? `<div class="more"><a href="#" data-act="moreList">Rodyti daugiau (${list.length - shown.length})</a></div>` : '')
+    </div>`; }).join('') + (list.length > shown.length ? `<div class="more"><a href="#" data-act="moreList">Rodyti daugiau (${list.length - shown.length})</a></div>` : '')
     || '<div class="empty">Nieko nerasta</div>';
 }
 
@@ -398,6 +516,7 @@ function renderMain(){
   if (!g){ m.innerHTML = '<div class="empty">Pasirinkite užsakymą kairėje arba sukurkite naują.</div>'; return; }
   const o = g.o, ls = g.lines;
   const sumN = ls.reduce((s, l) => s + (+l.norma || 0), 0), sumV = ls.reduce((s, l) => s + (+l.verte || 0), 0);
+  const shownLines = lineFiltered() && !S.showAll ? ls.filter(lineMatch) : ls;
   m.innerHTML = `
   <div class="card ohead">
     <div class="title"><h2>${esc(o.nr)}</h2>${o.tipas ? `<span class="tag ${tipClass(o.tipas)}">${esc(tipName(o.tipas))}</span>` : ''}<span class="sp"></span>
@@ -409,11 +528,14 @@ function renderMain(){
     <div class="f"><label>Norma iš viso</label><div class="mono">${num(sumN)} val.</div></div>
     <div class="f"><label>Sąmatinė vertė</label><div class="mono">${num(sumV)} €</div></div>
   </div>
-  <div class="toolbar"><h3>RMC eilutės</h3>${o.nr !== NO_NR ? '<button class="primary" data-act="addLine">+ Nauja eilutė</button>' : ''}</div>
+  <div class="toolbar"><h3>RMC eilutės</h3>
+    ${lineFiltered() && shownLines.length !== ls.length ? `<span class="finfo">Pagal filtrus rodoma ${shownLines.length} iš ${ls.length} · <a href="#" data-act="showAll">rodyti visas</a></span>` : ''}
+    ${lineFiltered() && S.showAll ? `<span class="finfo">Rodomos visos eilutės · <a href="#" data-act="showAll">tik atitinkančios filtrus</a></span>` : ''}
+    ${o.nr !== NO_NR ? '<button class="primary" data-act="addLine">+ Nauja eilutė</button>' : ''}</div>
   <div class="card" style="overflow-x:auto">
     ${ls.length ? `<table>
       <thead><tr><th>RMC Nr.</th><th>Reg. data</th><th>Užsakymo turinys</th><th class="num">Kiekis</th><th class="hide-sm">Atstovas</th><th class="hide-sm">Vykdo</th><th class="hide-sm">Technologas</th><th class="num">Norma</th><th>Terminas</th><th>Būsena</th><th></th></tr></thead>
-      <tbody>${ls.map(l => { const [s, c] = status(l); return `
+      <tbody>${shownLines.map(l => { const [s, c] = status(l); return `
         <tr class="ln ${S.open === l.id ? 'sel' : ''}" data-act="openLine" data-id="${l.id}">
           <td class="nw"><b>${mk(l.rmc || '—')}</b></td>
           <td class="mono nw">${fmt(l.data)}</td>
@@ -432,12 +554,13 @@ function renderMain(){
     : `<div class="empty">Šis užsakymas dar neturi eilučių.<br><br><button class="primary" data-act="addLine">+ Pridėti pirmą eilutę</button></div>`}
   </div>`;
 }
-function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderList(); renderMain(); }
+function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; renderFilters(); renderList(); renderMain(); }
 
 /* ---------- eilutės forma ---------- */
 let draft = null;   // { ...eilutė, _isNew, _orig }
 function fld(k, label, type = 'text', list){
   const v = draft[k] ?? '';
+  if (type === 'date') return `<div><label class="l">${label}</label>${dateInput(`data-f="${k}"`, v)}</div>`;
   const dl = list ? `<datalist id="dl_${k}">${list.map(x => `<option value="${esc(x)}">`).join('')}</datalist>` : '';
   return `<div><label class="l">${label}</label><input type="${type}" data-f="${k}" value="${esc(v)}" ${type === 'number' ? 'step="any"' : ''} ${list ? `list="dl_${k}"` : ''}>${dl}</div>`;
 }
@@ -479,7 +602,7 @@ function openLine(line, isNew){
         <div class="full"><label class="l">Pastaba</label><input data-f="pastaba" value="${esc(draft.pastaba || '')}"></div>
       </div></div>
       <div class="grp"><h4>Atkrovimas</h4><div class="grid">${fld('atkr', 'Atkrovimo data', 'date')}</div></div>
-      ${isNew ? '' : `<div class="meta">Sukurta: ${esc(fmtFull(localDate(line.created)))}${line.author ? ' · ' + esc(line.author) : ''}<br>Pakeista: ${esc(line.modified ? new Date(line.modified).toLocaleString('lt-LT') : '—')}${line.editor ? ' · ' + esc(line.editor) : ''}</div>`}
+      ${isNew ? '' : `<div class="meta">Sukurta: ${esc(fmtFull(localDate(line.created)))}${line.author ? ' · ' + esc(line.author) : ''}<br>Pakeista: ${esc(line.modified ? fmtDT(line.modified) : '—')}${line.editor ? ' · ' + esc(line.editor) : ''}</div>`}
     </div>
     <div class="df">
       ${isNew ? '' : `<button class="danger" data-act="delLine" data-id="${line.id}">Ištrinti</button><button data-act="copyLine" data-id="${line.id}">Kopijuoti</button>`}
@@ -501,6 +624,12 @@ function closeAsk(){ if (dirty() && !confirm('Yra neišsaugotų pakeitimų. Užd
 async function saveLine(){
   if (S.busy) return;
   if (!String(draft.turinys || '').trim()){ toast('Įveskite užsakymo turinį', true); return; }
+  for (const [k, , disp, type] of LINE_FIELDS){
+    if (type !== 'date' || !draft[k]) continue;
+    const n = normDate(draft[k]);
+    if (n === null){ toast('Neteisinga data „' + disp + '“: ' + draft[k] + ' (reikia YYYY-MM-DD)', true); return; }
+    draft[k] = n;
+  }
   const btn = $('saveBtn'); S.busy = true; btn.disabled = true; btn.textContent = 'Saugoma…';
   try {
     const fields = Object.fromEntries(LINE_FIELDS.map(([k]) => [k, draft[k] ?? null]));
@@ -566,7 +695,10 @@ document.addEventListener('click', e => {
   switch (a){
     case 'filt': S.filt = t.dataset.f; S.limit = 150; renderList(); break;
     case 'moreList': e.preventDefault(); S.limit += 300; renderList(); break;
-    case 'selo': if (draft && !closeAsk()) return; S.sel = t.dataset.nr; try { localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderList(); renderMain(); break;
+    case 'ftoggle': if (e.target.closest('a')) return; S.fOpen = !S.fOpen; saveF(); renderFilters(); break;
+    case 'fclear': e.preventDefault(); S.f = Object.assign({}, F_EMPTY); applyF(); break;
+    case 'showAll': e.preventDefault(); S.showAll = !S.showAll; renderMain(); break;
+    case 'selo': if (draft && !closeAsk()) return; S.sel = t.dataset.nr; S.showAll = false; try { localStorage.setItem(VIEW_KEY, S.sel); } catch (_) {} renderList(); renderMain(); break;
     case 'openLine': if (e.target.closest('button')) return; if (draft && !closeAsk()) return; openLine(line); break;
     case 'lmenu': { e.stopPropagation(); const r = t.getBoundingClientRect();
       showMenu(r.left - 160, r.bottom + 4, [['Redaguoti', 'm_open', id], ['Kopijuoti eilutę', 'copyLine', id], '-', ['Ištrinti', 'delLine', id, true]]); break; }
@@ -605,6 +737,33 @@ document.addEventListener('click', e => {
   const g = group(draft.uzsNr || NO_NR); const i = g.lines.findIndex(x => x.id === draft.id) + (+t.dataset.d);
   if (g.lines[i]) openLine(g.lines[i]);
 }, true);
+let fTimer;
+const onF = e => { const k = e.target.dataset && e.target.dataset.flt; if (!k) return;
+  const v = e.target.value.trim();
+  if (e.target.dataset.date){ const n = normDate(v); if (n === null) return; S.f[k] = n; } else S.f[k] = v;
+  clearTimeout(fTimer);
+  fTimer = setTimeout(() => { S.limit = 150; S.showAll = false; saveF(); renderList(); renderMain();
+    const fc = $('fbox').querySelector('.fhead'); const n = fCount();   // atnaujinti tik antraštę, kad neprarastų fokuso
+    fc.innerHTML = `<span class="tw">▾</span><b>Filtrai</b>${n ? `<span class="fc">${n}</span>` : ''}<span class="sp"></span>${n ? '<a href="#" data-act="fclear">Išvalyti</a>' : ''}`;
+  }, e.target.tagName === 'INPUT' ? 200 : 0); };
+// datos laukai: išėjus iš lauko – sutvarkyti formatą; neteisingą pažymėti raudonai
+document.addEventListener('focusout', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.date) return;
+  const n = normDate(el.value);
+  el.classList.toggle('bad', n === null);
+  if (n !== null && n !== el.value){ el.value = n; el.dispatchEvent(new Event('input', { bubbles: true })); }
+});
+// kalendoriaus mygtukas → naršyklės datos pasirinkimas → įrašoma YYYY-MM-DD
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act="pick"]'); if (!b) return;
+  e.stopPropagation();
+  const wrap = b.parentNode, txt = wrap.querySelector('[data-date]'), pick = wrap.querySelector('.dpick');
+  pick.value = normDate(txt.value) || '';
+  pick.onchange = () => { txt.value = pick.value; txt.classList.remove('bad'); txt.dispatchEvent(new Event('input', { bubbles: true })); };
+  try { pick.showPicker(); } catch (_) { pick.focus(); pick.click(); }
+}, true);
+document.addEventListener('input', onF);
+$('sortSel').onchange = e => { S.sort = e.target.value; S.limit = 150; saveF(); renderList(); $('olist').scrollTop = 0; };
 let qTimer;
 $('q').oninput = e => { clearTimeout(qTimer); qTimer = setTimeout(() => { S.q = e.target.value; S.limit = 150; renderList(); renderMain(); }, 150); };
 $('scrim').onclick = e => { if (e.target.id === 'scrim') closeModal(); };
