@@ -218,7 +218,6 @@ const LINE_FIELDS = [
   ['verte',       'Verte',          'Sąmatinė vertė',        'num'],
   ['po',          'PoNr',           'Prioritetas ir PO Nr.', 'text'],
   ['terminas',    'Terminas',       'Užsakymo terminas',     'date'],
-  ['dok',         'Dokumentacija',  'Dokumentacija',         'text'],
   ['vykdo',       'Vykdo',          'Vykdo',                 'text'],
   ['technologas', 'Technologas',    'Technologas',           'text'],
   ['norma',       'Norma',          'Norma (val.)',          'num'],
@@ -382,9 +381,9 @@ function makeDemoStore(){
     { nr: 'I269003', tipas: 'Aptarnavimas', uzsakovas: 'Bandymų cechas', vieta: 'Bandymų cechas' }
   ].map(o => Object.assign(o, { id: id++ }));
   const L = [
-    { uzsNr: 'I269001', rmc: '9001', data: '2026-11-02', turinys: 'Siurblio veleno remontas', kiekis: 1, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', norma: 6.5, terminas: '2026-11-20', mat: '42CrMo4', dok: 'Reikia DOK', po: 'Normalus' },
-    { uzsNr: 'I269001', rmc: '9002', data: '2026-11-03', turinys: 'Tarpinės Ø 120 x Ø 80', kiekis: 10, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', terminas: '2026-11-10', dok: 'Nereikia DOK', po: 'Skubus' },
-    { uzsNr: 'I269002', rmc: '9003', data: '2026-10-20', turinys: 'FLANGE ADAPTER DN150; DEMO-1234-01', kiekis: 4, verte: 1250, vykdo: 'Vykdytojas C.', technologas: 'Technologas D.', norma: 12, faktas: 11.5, terminas: '2026-11-05', brez: 'DEMO-1234-01', mat: 'S355', atkr: '2026-11-04', dok: 'Reikia DOK', po: 'PO-0001' },
+    { uzsNr: 'I269001', rmc: '9001', data: '2026-11-02', turinys: 'Siurblio veleno remontas', kiekis: 1, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', norma: 6.5, terminas: '2026-11-20', mat: '42CrMo4', po: 'Normalus' },
+    { uzsNr: 'I269001', rmc: '9002', data: '2026-11-03', turinys: 'Tarpinės Ø 120 x Ø 80', kiekis: 10, vykdo: 'Vykdytojas A.', technologas: 'Technologas B.', terminas: '2026-11-10', po: 'Skubus' },
+    { uzsNr: 'I269002', rmc: '9003', data: '2026-10-20', turinys: 'FLANGE ADAPTER DN150; DEMO-1234-01', kiekis: 4, verte: 1250, vykdo: 'Vykdytojas C.', technologas: 'Technologas D.', norma: 12, faktas: 11.5, terminas: '2026-11-05', brez: 'DEMO-1234-01', mat: 'S355', atkr: '2026-11-04', po: 'PO-0001' },
     { uzsNr: 'I269003', rmc: '9004', data: '2026-11-10', turinys: 'Armatūros remontas', kiekis: 3, vykdo: 'Vykdytojas A.', terminas: '2026-12-01', po: 'Normalus' }
   ].map(l => Object.assign({ atstovas: '', verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, kitasUzs: '', kitaVieta: '' }, l, { id: id++, modified: new Date().toISOString(), editor: 'Demo' }));
   const list = arr => ({
@@ -682,7 +681,7 @@ function openLine(line, isNew){
       <h3>${isNew ? 'Nauja eilutė' : 'RMC ' + esc(line.rmc)} <span class="muted" style="font-weight:400;font-size:13px">· ${esc(g.o.nr)}</span></h3>
       <button class="sm" data-act="closeD">✕</button></div>
     <div class="db">
-      ${isNew ? `<div class="warn">${line._copy ? 'Eilutės kopija – patikrinkite turinį ir išsaugokite.' : 'Atstovas, PO Nr., dokumentacija, vykdytojas, technologas ir terminas perimti iš paskutinės eilutės.'}</div>` : ''}
+      ${isNew ? `<div class="warn">${line._copy ? 'Eilutės kopija – patikrinkite turinį ir išsaugokite.' : 'Atstovas, PO Nr., vykdytojas, technologas ir terminas perimti iš paskutinės eilutės.'}</div>` : ''}
       <div class="grp"><h4>Registravimas</h4><div class="grid">
         <div class="full"><label class="l req">Užsakymo turinys</label><textarea rows="2" data-f="turinys">${esc(draft.turinys)}</textarea></div>
         ${fld('data', 'Registravimo data', 'date')}
@@ -692,7 +691,6 @@ function openLine(line, isNew){
         ${fld('atstovas', 'Užsakovo atstovas', 'text', uniq('atstovas'))}
         ${fld('terminas', 'Užsakymo terminas', 'date')}
         ${fld('po', 'Prioritetas / PO Nr.', 'text', ['Normalus', 'Skubus', 'Avarinis'])}
-        ${fld('dok', 'Dokumentacija', 'text', ['Reikia DOK', 'Nereikia DOK'])}
         ${fld('brez', 'Brėžinio Nr.')}
         ${fld('mat', 'Medžiaga / splavas', 'text', uniq('mat'))}
         <div><label class="l">Užsakovas</label><input value="${esc(g.o.uzsakovas || '')}" disabled><span class="inh">↳ iš užsakymo</span></div>
@@ -755,7 +753,7 @@ async function saveLine(){
 }
 function newLine(g, src, copy){
   src = src || g.lines[g.lines.length - 1] || {};
-  const carry = ['atstovas', 'terminas', 'vykdo', 'technologas', 'po', 'dok', 'kitasUzs', 'kitaVieta'];
+  const carry = ['atstovas', 'terminas', 'vykdo', 'technologas', 'po', 'kitasUzs', 'kitaVieta'];
   const n = { uzsNr: g.o.nr, rmc: String(nextRmc()), data: TODAY, turinys: '', kiekis: null, verte: null, norma: null, faktas: null, brez: '', mat: '', pastaba: '', atkr: null, _copy: !!copy };
   carry.forEach(k => n[k] = src[k] || (k === 'terminas' ? null : ''));
   if (copy) ['turinys', 'kiekis', 'verte', 'brez', 'mat', 'norma'].forEach(k => n[k] = src[k]);
