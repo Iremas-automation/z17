@@ -261,7 +261,7 @@ function makeSpStore(){
   const SCOPES = [spOrigin + '/AllSites.Write'];
   const pca = new msal.PublicClientApplication({
     auth: { clientId: SP_CONFIG.clientId, authority: 'https://login.microsoftonline.com/' + SP_CONFIG.tenantId, redirectUri: location.origin + location.pathname },
-    cache: { cacheLocation: 'sessionStorage' }
+    cache: { cacheLocation: 'localStorage' }   // prisijungimas išlieka tarp kortelių ir naršyklės paleidimų
   });
   let account = null;
 
@@ -343,10 +343,12 @@ function makeSpStore(){
       await pca.initialize();
       const r = await pca.handleRedirectPromise();
       account = (r && r.account) || pca.getActiveAccount() || pca.getAllAccounts()[0] || null;
+      // nėra paskyros šioje naršyklėje → bandyti tyliai panaudoti esamą Microsoft prisijungimą
+      if (!account){ try { account = (await pca.ssoSilent({ scopes: SCOPES })).account; } catch (e) { console.info('ssoSilent nepavyko:', e.errorCode || e.message); } }
       if (account) pca.setActiveAccount(account);
       return account;
     },
-    login: () => pca.loginRedirect({ scopes: SCOPES, prompt: 'select_account' }),
+    login: () => pca.loginRedirect({ scopes: SCOPES }),
     logout: () => pca.logoutRedirect({ account, postLogoutRedirectUri: location.origin + location.pathname }),
     user: () => account && (account.name || account.username),
     async load(){ const [o, l] = await Promise.all([orders.all(), lines.all()]); return { orders: o, lines: l, missing: orders.missing().concat(lines.missing()) }; },
@@ -803,7 +805,14 @@ async function loadData(){
   let acc;
   try { acc = await store.signIn(); }
   catch (e){ console.error(e); gate('Prisijungti nepavyko', String(e.message || e), 'Bandyti dar kartą', () => location.reload()); return; }
-  if (!acc){ gate('Ž-17 RMC užsakymai', 'Prisijunkite su Iremas Microsoft paskyra.', 'Prisijungti', () => store.login()); return; }
+  if (!acc){
+    // vieną kartą automatiškai nukreipti į Microsoft prisijungimą (jei jau prisijungęs – grįš iškart);
+    // jei grįžus vis tiek nėra paskyros, rodomas mygtukas, kad nesusidarytų ciklas
+    let tried = false; try { tried = sessionStorage.getItem('z17_autologin') === '1'; sessionStorage.setItem('z17_autologin', '1'); } catch (_) {}
+    if (!tried && store.mode === 'sp'){ gate('Jungiamasi…', 'Nukreipiama į Microsoft prisijungimą.'); store.login(); return; }
+    gate('Ž-17 RMC užsakymai', 'Prisijunkite su Iremas Microsoft paskyra.', 'Prisijungti', () => store.login()); return;
+  }
+  try { sessionStorage.removeItem('z17_autologin'); } catch (_) {}
   $('gate').innerHTML = '';
   document.body.classList.remove('locked'); document.title = document.body.dataset.title;
   $('who').textContent = store.user(); $('logout').hidden = store.mode !== 'sp';
