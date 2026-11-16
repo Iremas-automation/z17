@@ -111,6 +111,17 @@ mark{background:#f2d59a;color:inherit;border-radius:2px}
 button.ghost{border-color:transparent;background:transparent;color:var(--muted)}
 .spin{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* išskleidžiamas sąrašas */
+.combo{position:relative;display:flex}
+.combo input{padding-right:28px}
+.cbtn{position:absolute;right:2px;top:50%;transform:translateY(-50%);border:0;background:transparent;padding:2px 7px;color:var(--muted);font-size:11px;line-height:1}
+.cbtn:hover{color:var(--accent);background:transparent}
+.cbmenu{position:fixed;z-index:50;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);max-height:260px;overflow:auto;padding:4px}
+.cbi{padding:5px 10px;border-radius:5px;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbi:hover,.cbi.on{background:var(--accent-weak)}
+.cbi.cur{font-weight:600}
+.cbe{padding:6px 10px;font-size:12px;color:var(--muted)}
+.fgrid .combo input{padding-right:24px}
 /* drawer */
 .drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(45,40,30,.14);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column;z-index:10}
 .drawer.open{transform:none}
@@ -504,13 +515,13 @@ function renderFilters(){
     ${S.fOpen ? `<div class="fgrid">
       <div><label class="l">Projektas</label><select data-flt="tipas">${opts(['Remontas', 'Aptarnavimas', 'Kitos paslaugos'], S.f.tipas)}</select></div>
       <div><label class="l">Eilutės būsena</label><select data-flt="status">${opts(['Vykdoma', 'Vėluoja', 'Atkrauta', 'Anuliuota'], S.f.status)}</select></div>
-      <div class="full"><label class="l">Užsakovas</label><input data-flt="uzs" list="dl_fuzs" value="${esc(S.f.uzs)}" placeholder="Visi"><datalist id="dl_fuzs">${uzs.map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+      <div class="full"><label class="l">Užsakovas</label>${combo('data-flt="uzs"', S.f.uzs, uzs, 'Visi')}</div>
       <div><label class="l">Vykdo</label><select data-flt="vykdo">${opts(uniq('vykdo'), S.f.vykdo)}</select></div>
       <div><label class="l">Technologas</label><select data-flt="tech">${opts(uniq('technologas'), S.f.tech)}</select></div>
       <div><label class="l">Registruota nuo</label>${dateInput('data-flt="d1"', S.f.d1)}</div>
       <div><label class="l">iki</label>${dateInput('data-flt="d2"', S.f.d2)}</div>
       <div><label class="l">Brėžinio Nr.</label><input data-flt="brez" value="${esc(S.f.brez)}" placeholder="turi…"></div>
-      <div><label class="l">Medžiaga</label><input data-flt="mat" list="dl_fmat" value="${esc(S.f.mat)}" placeholder="turi…"><datalist id="dl_fmat">${uniq('mat').map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+      <div><label class="l">Medžiaga</label>${combo('data-flt="mat"', S.f.mat, uniq('mat'), 'turi…')}</div>
     </div>` : ''}`;
 }
 function applyF(){ S.limit = 150; S.showAll = false; saveF(); renderFilters(); renderList(); renderMain(); }
@@ -661,13 +672,66 @@ function render(){ G = groups(); if (!group(S.sel) && G[0]) S.sel = G[0].o.nr; r
 const renderMainBase = renderMain;
 renderMain = function(){ renderMainBase(); const g = group(S.sel); if (g && g.o.nr !== NO_NR) lookupFolder(g.o.nr); };
 
+/* ---------- išskleidžiamas sąrašas (vietoj <datalist>, kuris rodo tik sutampančias reikšmes) ----------
+   Laukas + ▾ mygtukas. Įėjus į lauką ar paspaudus ▾ – rodomos visos reikšmės; rašant – filtruojama;
+   ↑ ↓ Enter Esc. Galima įvesti ir naują reikšmę, kurios sąraše nėra. */
+const COMBO = {}; let comboSeq = 0;
+function combo(attrs, value, list, placeholder){
+  const key = 'c' + (++comboSeq); COMBO[key] = list || [];
+  return `<div class="combo"><input ${attrs} data-combo="${key}" value="${esc(value || '')}" autocomplete="off" ${placeholder ? `placeholder="${esc(placeholder)}"` : ''}><button type="button" class="cbtn" tabindex="-1" data-combo-btn="${key}" title="Rodyti sąrašą">▾</button></div>`;
+}
+const CB = { el: null, input: null, items: [], idx: -1, typed: false };
+function cbClose(){ if (CB.el){ CB.el.remove(); CB.el = null; } CB.input = null; CB.idx = -1; }
+function cbOpen(input, filter){
+  const list = COMBO[input.dataset.combo] || [];
+  const q = filter ? input.value.trim().toLowerCase() : '';
+  CB.items = (q ? list.filter(x => x.toLowerCase().includes(q)) : list).slice(0, 300);
+  if (!CB.el){ CB.el = document.createElement('div'); CB.el.className = 'cbmenu'; document.body.appendChild(CB.el); }
+  CB.input = input; CB.idx = CB.items.indexOf(input.value);
+  CB.el.innerHTML = CB.items.length
+    ? CB.items.map((x, i) => `<div class="cbi ${i === CB.idx ? 'on' : ''} ${x === input.value ? 'cur' : ''}" data-i="${i}">${esc(x)}</div>`).join('')
+    : `<div class="cbe">${list.length ? 'Nėra atitikmenų – bus įrašyta nauja reikšmė' : 'Sąrašas tuščias'}</div>`;
+  const r = input.getBoundingClientRect(), h = Math.min(260, CB.items.length * 30 + 8), below = innerHeight - r.bottom > h + 8;
+  Object.assign(CB.el.style, { left: r.left + 'px', width: Math.max(r.width, 180) + 'px', top: (below ? r.bottom + 2 : r.top - Math.min(h, 260) - 2) + 'px' });
+  const on = CB.el.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+}
+function cbPick(i){
+  const input = CB.input, v = CB.items[i]; if (!input || v == null) return;
+  input.value = v; cbClose();
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+}
+document.addEventListener('focusin', e => { if (e.target.dataset && e.target.dataset.combo){ CB.typed = false; cbOpen(e.target, false); } });
+document.addEventListener('input', e => { if (e.target.dataset && e.target.dataset.combo && e.isTrusted){ CB.typed = true; cbOpen(e.target, true); } }, true);
+document.addEventListener('focusout', e => { if (e.target.dataset && e.target.dataset.combo) setTimeout(() => { if (CB.input === e.target && document.activeElement !== e.target) cbClose(); }, 150); });
+document.addEventListener('mousedown', e => {
+  const it = e.target.closest('.cbmenu .cbi'); if (it){ e.preventDefault(); cbPick(+it.dataset.i); return; }
+  if (e.target.closest('.cbmenu')){ e.preventDefault(); return; }
+  const b = e.target.closest('[data-combo-btn]');
+  if (b){ e.preventDefault(); const input = b.parentNode.querySelector('[data-combo]');
+    if (CB.el && CB.input === input) cbClose(); else { input.focus(); cbOpen(input, false); } }
+}, true);
+document.addEventListener('keydown', e => {
+  if (!CB.el || !CB.input || e.target !== CB.input) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault(); const n = CB.items.length; if (!n) return;
+    CB.idx = e.key === 'ArrowDown' ? (CB.idx + 1) % n : (CB.idx - 1 + n) % n;
+    CB.el.querySelectorAll('.cbi').forEach((d, i) => d.classList.toggle('on', i === CB.idx));
+    CB.el.querySelector('.cbi.on')?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter' && CB.idx >= 0){ e.preventDefault(); e.stopPropagation(); cbPick(CB.idx); }
+  else if (e.key === 'Escape'){ e.stopPropagation(); cbClose(); }
+  else if (e.key === 'Tab') cbClose();
+}, true);
+document.addEventListener('scroll', e => { if (CB.el && !e.target.closest?.('.cbmenu')) cbClose(); }, true);
+addEventListener('resize', cbClose);
+
 /* ---------- eilutės forma ---------- */
 let draft = null;   // { ...eilutė, _isNew, _orig }
 function fld(k, label, type = 'text', list){
   const v = draft[k] ?? '';
   if (type === 'date') return `<div><label class="l">${label}</label>${dateInput(`data-f="${k}"`, v)}</div>`;
-  const dl = list ? `<datalist id="dl_${k}">${list.map(x => `<option value="${esc(x)}">`).join('')}</datalist>` : '';
-  return `<div><label class="l">${label}</label><input type="${type}" data-f="${k}" value="${esc(v)}" ${type === 'number' ? 'step="any"' : ''} ${list ? `list="dl_${k}"` : ''}>${dl}</div>`;
+  if (list) return `<div><label class="l">${label}</label>${combo(`data-f="${k}"`, v, list)}</div>`;
+  return `<div><label class="l">${label}</label><input type="${type}" data-f="${k}" value="${esc(v)}" ${type === 'number' ? 'step="any"' : ''}></div>`;
 }
 function openLine(line, isNew){
   const g = group(line.uzsNr || NO_NR); if (!g) return;
@@ -770,8 +834,8 @@ function orderForm(o, fixedNr){
   return `<div class="grid">
     <div><label class="l req">Užs. Nr.</label><input id="m_nr" value="${esc(o ? o.nr : (fixedNr || nextNr()))}" ${o || fixedNr ? 'disabled' : ''}>${o || fixedNr ? '' : '<span class="inh">↳ pasiūlytas kitas numeris</span>'}</div>
     <div><label class="l req">Projektas</label><select id="m_tipas">${TIPAI.map(t => `<option ${v.tipas === t ? 'selected' : ''}>${t}</option>`).join('')}${v.tipas && !TIPAI.includes(v.tipas) ? `<option selected>${esc(v.tipas)}</option>` : ''}</select></div>
-    <div class="full"><label class="l req">Užsakovas</label><input id="m_uzs" list="dl_uzs" value="${esc(v.uzsakovas)}" placeholder="Pradėkite rašyti…"><datalist id="dl_uzs">${uz.map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
-    <div class="full"><label class="l">Objekto vieta</label><input id="m_vieta" list="dl_v" value="${esc(v.vieta || '')}"><datalist id="dl_v">${vt.map(u => `<option value="${esc(u)}">`).join('')}</datalist></div>
+    <div class="full"><label class="l req">Užsakovas</label>${combo('id="m_uzs"', v.uzsakovas, uz, 'Pradėkite rašyti…')}</div>
+    <div class="full"><label class="l">Objekto vieta</label>${combo('id="m_vieta"', v.vieta || '', vt)}</div>
     ${o ? '' : `<label class="full" style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="m_line" checked style="width:auto">Iš karto pridėti pirmą RMC eilutę</label>`}
   </div>`;
 }
